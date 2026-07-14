@@ -41,7 +41,19 @@ jobs:
             throw "Tag ${{ github.ref_name }} does not match package version $version."
           }
 
-      - name: Build and publish release
-        run: npm run release
+      - name: Build release
+        run: npm run build -- --publish never
+
+      - name: Publish GitHub release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $assets = Get-ChildItem -Path "release/$version" -File | Select-Object -ExpandProperty FullName
+
+          if (-not $assets) {
+            throw "No release assets were generated."
+          }
+
+          gh release create "${{ github.ref_name }}" @assets --title $version --generate-notes --verify-tag
