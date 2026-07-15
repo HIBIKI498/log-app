@@ -13,7 +13,7 @@ Electron + React + TypeScript + Vite + SQLite で開発しています。Windows
 - TypeScript
 - Vite
 - SQLite
-- better-sqlite3
+- Electron内蔵SQLite (`node:sqlite`)
 
 ## 初回セットアップ
 

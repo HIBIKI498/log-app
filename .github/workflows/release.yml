@@ -42,7 +42,27 @@ jobs:
           }
 
       - name: Build release
-        run: npm run build -- --publish never
+        run: npm run build
+
+      - name: Smoke test packaged SQLite
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $executable = Join-Path "release/$version/win-unpacked" "log-app.exe"
+          $env:SQLITE_DB_PATH = Join-Path $env:RUNNER_TEMP "log-app-smoke-test.db"
+          $process = Start-Process -FilePath $executable -ArgumentList "--database-smoke-test" -Wait -PassThru
+
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged SQLite smoke test failed with exit code $($process.ExitCode)."
+          }
+
+          if (-not (Test-Path -LiteralPath $env:SQLITE_DB_PATH)) {
+            throw "Packaged app did not create the SQLite database."
+          }
+
+          if ((Get-Item -LiteralPath $env:SQLITE_DB_PATH).Length -eq 0) {
+            throw "Packaged app created an empty SQLite database."
+          }
 
       - name: Publish GitHub release
         shell: pwsh

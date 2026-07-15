@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
-import Database from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
+import type { SQLInputValue } from 'node:sqlite'
 import { autoUpdater } from 'electron-updater'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -54,6 +55,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null
 let updateCheckStarted = false
+const isDatabaseSmokeTest = process.argv.includes('--database-smoke-test')
 
 app.setName('log-app')
 
@@ -202,23 +204,23 @@ type SqliteResult = {
 }
 
 class SqliteConnection {
-  private readonly database: Database.Database
+  private readonly database: DatabaseSync
 
   constructor(databasePath: string) {
-    this.database = new Database(databasePath)
-    this.database.pragma('foreign_keys = ON')
-    this.database.pragma('journal_mode = WAL')
+    this.database = new DatabaseSync(databasePath)
+    this.database.exec('PRAGMA foreign_keys = ON')
+    this.database.exec('PRAGMA journal_mode = WAL')
   }
 
-  async execute<T = unknown[]>(sql: string, parameters: unknown[] = []): Promise<[T]> {
+  async execute<T = unknown[]>(sql: string, parameters: SQLInputValue[] = []): Promise<[T]> {
     const statement = this.database.prepare(sql)
     const command = sql.trimStart().split(/\s+/, 1)[0]?.toLowerCase()
 
     if (command === 'select' || command === 'with') {
-      return [statement.all(parameters) as T]
+      return [statement.all(...parameters) as T]
     }
 
-    const result = statement.run(parameters)
+    const result = statement.run(...parameters)
     return [
       {
         insertId: Number(result.lastInsertRowid ?? 0),
@@ -261,6 +263,32 @@ async function testDatabaseConnection() {
   await connection.end()
 
   console.log(`SQLite database is ready: ${getDatabasePath()}`)
+}
+
+async function testDatabaseReadWrite() {
+  const connection = createDatabaseConnection()
+
+  try {
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS database_smoke_test (
+        value TEXT NOT NULL
+      )
+    `)
+    await connection.execute('DELETE FROM database_smoke_test')
+    await connection.execute('INSERT INTO database_smoke_test (value) VALUES (?)', ['ok'])
+
+    const [rows] = await connection.execute<Array<{ value: string }>>(
+      'SELECT value FROM database_smoke_test',
+    )
+
+    if (rows.length !== 1 || rows[0].value !== 'ok') {
+      throw new Error('SQLite read/write verification returned an unexpected result.')
+    }
+
+    await connection.execute('DROP TABLE database_smoke_test')
+  } finally {
+    await connection.end()
+  }
 }
 
 function createEntriesTableSql(tableName = 'entries') {
@@ -845,7 +873,7 @@ function registerIpcHandlers() {
     try {
       await connection.execute('UPDATE tags SET name = ?, is_fixed = ? WHERE id = ?', [
         trimmedName,
-        true,
+        1,
         id,
       ])
 
@@ -1202,8 +1230,22 @@ app.whenReady().then(async () => {
   try {
     await ensureDatabaseSchema()
     await testDatabaseConnection()
+
+    if (isDatabaseSmokeTest) {
+      await testDatabaseReadWrite()
+    }
   } catch (error) {
     console.error('SQLite setup failed.', error)
+
+    if (isDatabaseSmokeTest) {
+      app.exit(1)
+      return
+    }
+  }
+
+  if (isDatabaseSmokeTest) {
+    app.exit(0)
+    return
   }
 
   registerIpcHandlers()

@@ -14,8 +14,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              // better-sqlite3 は __filename を使うネイティブ依存なので、ESMへ束ねず実行時に読み込む。
-              external: ['better-sqlite3', 'electron-updater'],
+              external: ['electron-updater'],
             },
           },
         },
