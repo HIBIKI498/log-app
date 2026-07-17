@@ -4,6 +4,8 @@ import {
   insertBulletPointLine,
 } from '../../shared/bulletPoints'
 import { getTodayString } from '../../shared/date'
+import { SettingsModal, type SettingsModalMode } from '../../shared/SettingsModal'
+import { SettingsShortcuts } from '../../shared/SettingsShortcuts'
 import type { FeaturePageProps, FixedTagSetting } from '../../shared/types'
 
 // 習慣チェックを含めない、軽いメモ用の記録画面。
@@ -17,6 +19,7 @@ export function RecordPage({ isActive }: FeaturePageProps) {
   const [message, setMessage] = useState('')
   const [fixedTags, setFixedTags] = useState<FixedTagSetting[]>([])
   const [selectedFixedTagIds, setSelectedFixedTagIds] = useState<number[]>([])
+  const [openTagSettingsMode, setOpenTagSettingsMode] = useState<SettingsModalMode | null>(null)
 
   // 記録画面でも日記と同じ固定タグを共有して使う。
   const loadRecordSettings = useCallback(async () => {
@@ -158,7 +161,14 @@ export function RecordPage({ isActive }: FeaturePageProps) {
       </label>
 
       <div className="field">
-        <label htmlFor="record-tags">タグ</label>
+        <div className="field-heading">
+          <label htmlFor="record-tags">タグ</label>
+          <SettingsShortcuts
+            target="タグ"
+            onAdd={() => setOpenTagSettingsMode('add')}
+            onManage={() => setOpenTagSettingsMode('manage')}
+          />
+        </div>
         {/* 固定タグは日記と記録で共有し、自由入力タグと一緒に保存する。 */}
         {fixedTags.length > 0 ? (
           <div className="fixed-tag-selector" aria-label="固定タグを選択">
@@ -234,6 +244,15 @@ export function RecordPage({ isActive }: FeaturePageProps) {
         </button>
         {message ? <p className="save-message">{message}</p> : null}
       </div>
+
+      {openTagSettingsMode ? (
+        <SettingsModal
+          mode={openTagSettingsMode}
+          target="tag"
+          onClose={() => setOpenTagSettingsMode(null)}
+          onSettingsChanged={loadRecordSettings}
+        />
+      ) : null}
     </form>
   )
 }

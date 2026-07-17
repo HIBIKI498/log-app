@@ -125,6 +125,53 @@ button {
   font-weight: 700;
 }
 
+.field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-form .settings-shortcut-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #b8c5d3;
+  border-radius: 50%;
+  padding: 0;
+  color: #315979;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.log-form .settings-shortcut-button:hover {
+  border-color: #006bd6;
+  color: #0056ad;
+  background: #edf5fd;
+}
+
+.settings-shortcut-button:focus-visible {
+  outline: 3px solid rgb(0 107 214 / 28%);
+  outline-offset: 2px;
+}
+
+.settings-shortcut-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -167,19 +214,36 @@ button {
 }
 
 .habit-fieldset {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  margin: 0;
+  display: grid;
+  gap: 10px;
   border: 1px solid #dce7f5;
   border-radius: 6px;
   padding: 12px;
   background: #f7fbff;
 }
 
-.habit-fieldset legend {
-  padding: 0 4px;
+.habit-fieldset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #dce7f5;
+  padding-bottom: 8px;
+}
+
+.habit-fieldset-header h3 {
+  margin: 0;
+  color: #111111;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.35;
+}
+
+.habit-check-list {
+  padding: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
 }
 
 .habit-fieldset label {
@@ -1082,9 +1146,99 @@ button {
   gap: 24px;
 }
 
+.settings-modal-backdrop {
+  position: fixed;
+  z-index: 1050;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 46%);
+}
+
+.settings-modal {
+  width: min(100%, 680px);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 1px solid #cfd5dc;
+  border-radius: 10px;
+  padding: 22px;
+  color: #111111;
+  background: #ffffff;
+  box-shadow: 0 18px 44px rgb(0 0 0 / 24%);
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.settings-modal-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #c8ced6;
+  border-radius: 50%;
+  padding: 0 0 2px;
+  color: #3c4650;
+  background: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-modal-close:hover {
+  background: #f1f3f5;
+}
+
+.settings-modal-close:disabled {
+  color: #999999;
+  cursor: not-allowed;
+}
+
+.settings-modal-message {
+  margin: 0 0 14px;
+  border-radius: 5px;
+  padding: 9px 11px;
+  color: #33475b;
+  background: #eef5fc;
+}
+
+.settings-modal-add-form {
+  margin: 0;
+}
+
+.settings-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-modal-existing-section {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings-modal-list {
+  max-height: min(56vh, 520px);
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
 .confirmation-modal-backdrop {
   position: fixed;
-  z-index: 1000;
+  z-index: 1100;
   inset: 0;
   display: grid;
   place-items: center;
@@ -1420,6 +1574,24 @@ button {
   }
 
   .settings-add-button {
+    width: 100%;
+  }
+
+  .settings-modal-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .settings-modal {
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+  }
+
+  .settings-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .settings-modal-actions button {
     width: 100%;
   }
 

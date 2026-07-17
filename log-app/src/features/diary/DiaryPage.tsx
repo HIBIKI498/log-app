@@ -5,7 +5,18 @@ import {
 } from '../../shared/bulletPoints'
 import { getIsoWeekday, getTodayString } from '../../shared/date'
 import { WEEKDAYS } from '../../shared/habits'
+import {
+  SettingsModal,
+  type SettingsModalMode,
+  type SettingsModalTarget,
+} from '../../shared/SettingsModal'
+import { SettingsShortcuts } from '../../shared/SettingsShortcuts'
 import type { FeaturePageProps, FixedTagSetting, HabitSetting } from '../../shared/types'
+
+type OpenSettingsModal = {
+  target: SettingsModalTarget
+  mode: SettingsModalMode
+}
 
 export function DiaryPage({ isActive }: FeaturePageProps) {
   const [date, setDate] = useState(getTodayString)
@@ -19,6 +30,7 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const [fixedTags, setFixedTags] = useState<FixedTagSetting[]>([])
   const [selectedFixedTagIds, setSelectedFixedTagIds] = useState<number[]>([])
   const [habitSettings, setHabitSettings] = useState<HabitSetting[]>([])
+  const [openSettingsModal, setOpenSettingsModal] = useState<OpenSettingsModal | null>(null)
 
   const selectedDateWeekday = getIsoWeekday(date)
   const scheduledHabitSettings = habitSettings.filter((habit) =>
@@ -169,7 +181,14 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
       </label>
 
       <div className="field">
-        <label htmlFor="diary-tags">タグ</label>
+        <div className="field-heading">
+          <label htmlFor="diary-tags">タグ</label>
+          <SettingsShortcuts
+            target="タグ"
+            onAdd={() => setOpenSettingsModal({ target: 'tag', mode: 'add' })}
+            onManage={() => setOpenSettingsModal({ target: 'tag', mode: 'manage' })}
+          />
+        </div>
         {fixedTags.length > 0 ? (
           <div className="fixed-tag-selector" aria-label="固定タグを選択">
             {fixedTags.map((tag) => {
@@ -226,30 +245,39 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
         />
       </label>
 
-      <fieldset className="habit-fieldset">
-        <legend>
-          今日の習慣（{WEEKDAYS.find((weekday) => weekday.value === selectedDateWeekday)?.label ?? '-'}）
-        </legend>
-        {scheduledHabitSettings.length > 0 ? (
-          scheduledHabitSettings.map((habit) => (
-            <label key={habit.id}>
-              <input
-                type="checkbox"
-                checked={habitChecks[habit.id] ?? false}
-                onChange={(event) =>
-                  setHabitChecks((currentChecks) => ({
-                    ...currentChecks,
-                    [habit.id]: event.target.checked,
-                  }))
-                }
-              />
-              {habit.name}
-            </label>
-          ))
-        ) : (
-          <p className="empty-habit-message">この曜日に予定されている習慣はありません。</p>
-        )}
-      </fieldset>
+      <section className="habit-fieldset" aria-labelledby="today-habits-heading">
+        <div className="habit-fieldset-header">
+          <h3 id="today-habits-heading">
+            今日の習慣（{WEEKDAYS.find((weekday) => weekday.value === selectedDateWeekday)?.label ?? '-'}）
+          </h3>
+          <SettingsShortcuts
+            target="習慣"
+            onAdd={() => setOpenSettingsModal({ target: 'habit', mode: 'add' })}
+            onManage={() => setOpenSettingsModal({ target: 'habit', mode: 'manage' })}
+          />
+        </div>
+        <div className="habit-check-list">
+          {scheduledHabitSettings.length > 0 ? (
+            scheduledHabitSettings.map((habit) => (
+              <label key={habit.id}>
+                <input
+                  type="checkbox"
+                  checked={habitChecks[habit.id] ?? false}
+                  onChange={(event) =>
+                    setHabitChecks((currentChecks) => ({
+                      ...currentChecks,
+                      [habit.id]: event.target.checked,
+                    }))
+                  }
+                />
+                {habit.name}
+              </label>
+            ))
+          ) : (
+            <p className="empty-habit-message">この曜日に予定されている習慣はありません。</p>
+          )}
+        </div>
+      </section>
 
       <div className="form-actions">
         <button type="submit" disabled={isSaving}>
@@ -268,6 +296,15 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
         </button>
         {message ? <p className="save-message">{message}</p> : null}
       </div>
+
+      {openSettingsModal ? (
+        <SettingsModal
+          mode={openSettingsModal.mode}
+          target={openSettingsModal.target}
+          onClose={() => setOpenSettingsModal(null)}
+          onSettingsChanged={loadDiarySettings}
+        />
+      ) : null}
     </form>
   )
 }
