@@ -59,7 +59,7 @@ const isDatabaseSmokeTest = process.argv.includes('--database-smoke-test')
 
 app.setName('log-app')
 
-// GitHub Releases に公開された新しいバージョンを確認し、利用者の同意後に更新する。
+// GitHub Releases の更新をバックグラウンドで取得し、利用者の確認後に静かに適用する。
 function setupAutoUpdater() {
   // ポータブル版はインストール先を持たないため、自動更新ではなく実行ファイルを手動で差し替える。
   const isPortable = Boolean(process.env.PORTABLE_EXECUTABLE_FILE)
@@ -70,38 +70,23 @@ function setupAutoUpdater() {
 
   const updateWindow = win
   updateCheckStarted = true
-  autoUpdater.autoDownload = false
+  autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
-
-  autoUpdater.on('update-available', async (info) => {
-    const result = await dialog.showMessageBox(updateWindow, {
-      type: 'info',
-      title: '更新があります',
-      message: `log-app ${info.version} を利用できます。`,
-      detail: '今すぐダウンロードしますか？ダウンロード中もアプリを利用できます。',
-      buttons: ['ダウンロード', 'あとで'],
-      defaultId: 0,
-      cancelId: 1,
-    })
-
-    if (result.response === 0) {
-      await autoUpdater.downloadUpdate()
-    }
-  })
 
   autoUpdater.on('update-downloaded', async (info) => {
     const result = await dialog.showMessageBox(updateWindow, {
       type: 'info',
       title: '更新の準備ができました',
-      message: `log-app ${info.version} をインストールできます。`,
-      detail: 'アプリを再起動して更新を適用します。',
-      buttons: ['再起動して更新', '終了時に更新'],
+      message: `log-app ${info.version} への更新準備ができました。`,
+      detail: '再起動すると、インストーラー画面を表示せずに更新を適用します。「あとで」を選んだ場合は、アプリ終了時に自動で更新します。',
+      buttons: ['再起動して更新', 'あとで'],
       defaultId: 0,
       cancelId: 1,
     })
 
     if (result.response === 0) {
-      autoUpdater.quitAndInstall()
+      // サイレント更新を行い、完了後に新しいバージョンを起動する。
+      autoUpdater.quitAndInstall(true, true)
     }
   })
 
