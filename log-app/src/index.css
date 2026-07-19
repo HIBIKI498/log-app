@@ -701,21 +701,41 @@ button {
   background: #edf0f2;
 }
 
-.todo-delete-button {
+.todo-item-actions {
   grid-row: 1 / span 2;
   grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.todo-edit-button,
+.todo-delete-button {
   border: 1px solid #d0a09c;
   border-radius: 4px;
   padding: 7px 10px;
-  color: #a1281e;
   background: #ffffff;
   cursor: pointer;
+}
+
+.todo-edit-button {
+  border-color: #9dbbd7;
+  color: #125b9a;
+}
+
+.todo-edit-button:hover {
+  background: #eef6fd;
+}
+
+.todo-delete-button {
+  color: #a1281e;
 }
 
 .todo-delete-button:hover {
   background: #fff0ee;
 }
 
+.todo-edit-button:disabled,
 .todo-delete-button:disabled {
   color: #888888;
   background: #f2f2f2;
@@ -1556,7 +1576,7 @@ button {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .todo-delete-button {
+  .todo-item-actions {
     grid-row: auto;
     grid-column: 1;
     justify-self: start;

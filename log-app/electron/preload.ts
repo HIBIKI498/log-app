@@ -129,6 +129,9 @@ contextBridge.exposeInMainWorld('logApp', {
   updateTodoStatus(id: number, isDone: boolean) {
     return ipcRenderer.invoke('todos:update-status', id, isDone) as Promise<{ id: number }>
   },
+  updateTodo(id: number, todo: TodoInput) {
+    return ipcRenderer.invoke('todos:update', id, todo) as Promise<{ id: number }>
+  },
   updateEntry(entry: UpdateEntryInput) {
     return ipcRenderer.invoke('entries:update', entry) as Promise<{
       id: number

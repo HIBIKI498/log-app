@@ -110,6 +110,7 @@ interface Window {
     updateFixedTag(id: number, name: string): Promise<{ id: number }>
     updateHabit(id: number, name: string, weekdays: number[]): Promise<{ id: number }>
     updateTodoStatus(id: number, isDone: boolean): Promise<{ id: number }>
+    updateTodo(id: number, todo: TodoInput): Promise<{ id: number }>
     updateEntry(entry: UpdateEntryInput): Promise<{ id: number; tagCount: number }>
   }
 }

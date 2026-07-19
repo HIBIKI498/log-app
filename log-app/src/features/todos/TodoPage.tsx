@@ -86,21 +86,28 @@ function groupTodosByDueDate(todoItems: TodoItem[]): TodoGroup[] {
   }))
 }
 
-// ToDoの追加、完了切り替え、絞り込み、削除を担当するページ。
+// ToDoの追加、編集、完了切り替え、絞り込み、削除を担当するページ。
 export function TodoPage({ isActive }: FeaturePageProps) {
   const [todos, setTodos] = useState<TodoItem[]>([])
   const [newTodoTitle, setNewTodoTitle] = useState('')
   const [newTodoDueDate, setNewTodoDueDate] = useState('')
   const [isNewTodoUnlimited, setIsNewTodoUnlimited] = useState(true)
   const [newTodoPriority, setNewTodoPriority] = useState<TodoPriority>('normal')
-  const [todoFilter, setTodoFilter] = useState<TodoFilter>('all')
+  const [todoFilter, setTodoFilter] = useState<TodoFilter>('active')
   const [todoSortMode, setTodoSortMode] = useState<TodoSortMode>('date')
   const [todoMessage, setTodoMessage] = useState('')
   const [addTodoMessage, setAddTodoMessage] = useState('')
   const [isLoadingTodos, setIsLoadingTodos] = useState(false)
   const [isAddTodoModalOpen, setIsAddTodoModalOpen] = useState(false)
+  const [editingTodo, setEditingTodo] = useState<TodoItem | null>(null)
+  const [editTodoTitle, setEditTodoTitle] = useState('')
+  const [editTodoDueDate, setEditTodoDueDate] = useState('')
+  const [isEditTodoUnlimited, setIsEditTodoUnlimited] = useState(true)
+  const [editTodoPriority, setEditTodoPriority] = useState<TodoPriority>('normal')
+  const [editTodoMessage, setEditTodoMessage] = useState('')
   const [pendingTodoDeletion, setPendingTodoDeletion] = useState<TodoItem | null>(null)
   const newTodoTitleInputRef = useRef<HTMLInputElement>(null)
+  const editTodoTitleInputRef = useRef<HTMLInputElement>(null)
 
   const activeTodoCount = todos.filter((todo) => !todo.isDone).length
   const completedTodoCount = todos.length - activeTodoCount
@@ -180,6 +187,35 @@ export function TodoPage({ isActive }: FeaturePageProps) {
     }
   }, [isAddTodoModalOpen, isLoadingTodos])
 
+  useEffect(() => {
+    if (!editingTodo) {
+      return
+    }
+
+    requestAnimationFrame(() => {
+      editTodoTitleInputRef.current?.focus()
+    })
+  }, [editingTodo])
+
+  useEffect(() => {
+    if (!editingTodo) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLoadingTodos) {
+        setEditingTodo(null)
+        setEditTodoMessage('')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [editingTodo, isLoadingTodos])
+
   const resetNewTodoForm = () => {
     setNewTodoTitle('')
     setNewTodoDueDate('')
@@ -195,6 +231,24 @@ export function TodoPage({ isActive }: FeaturePageProps) {
     setIsAddTodoModalOpen(false)
     setAddTodoMessage('')
     resetNewTodoForm()
+  }
+
+  const openEditTodoModal = (todo: TodoItem) => {
+    setEditingTodo(todo)
+    setEditTodoTitle(todo.title)
+    setEditTodoDueDate(todo.dueDate ?? '')
+    setIsEditTodoUnlimited(!todo.dueDate)
+    setEditTodoPriority(todo.priority)
+    setEditTodoMessage('')
+  }
+
+  const closeEditTodoModal = () => {
+    if (isLoadingTodos) {
+      return
+    }
+
+    setEditingTodo(null)
+    setEditTodoMessage('')
   }
 
   // 新しいタスクを保存し、入力欄と一覧を更新する。
@@ -240,6 +294,40 @@ export function TodoPage({ isActive }: FeaturePageProps) {
     } catch (error) {
       console.error('ToDoの更新に失敗しました:', error)
       setTodoMessage('タスクの状態を更新できませんでした。')
+    } finally {
+      setIsLoadingTodos(false)
+    }
+  }
+
+  // 編集したタスク名、期限、優先度をSQLiteへ保存する。
+  const handleUpdateTodo = async () => {
+    if (!editingTodo) {
+      return
+    }
+    if (!editTodoTitle.trim()) {
+      setEditTodoMessage('タスク名を入力してください。')
+      return
+    }
+    if (!isEditTodoUnlimited && !editTodoDueDate) {
+      setEditTodoMessage('期限の日付を入力するか、無期限を選択してください。')
+      return
+    }
+
+    setIsLoadingTodos(true)
+    setEditTodoMessage('')
+
+    try {
+      await window.logApp.updateTodo(editingTodo.id, {
+        title: editTodoTitle,
+        dueDate: isEditTodoUnlimited ? '' : editTodoDueDate,
+        priority: editTodoPriority,
+      })
+      setEditingTodo(null)
+      await loadTodos()
+      setTodoMessage('タスクを更新しました。')
+    } catch (error) {
+      console.error('ToDoの編集に失敗しました:', error)
+      setEditTodoMessage('タスクを更新できませんでした。')
     } finally {
       setIsLoadingTodos(false)
     }
@@ -302,14 +390,24 @@ export function TodoPage({ isActive }: FeaturePageProps) {
             <span className="todo-due-date">無期限</span>
           )}
         </div>
-        <button
-          className="todo-delete-button"
-          type="button"
-          disabled={isLoadingTodos}
-          onClick={() => setPendingTodoDeletion(todo)}
-        >
-          削除
-        </button>
+        <div className="todo-item-actions">
+          <button
+            className="todo-edit-button"
+            type="button"
+            disabled={isLoadingTodos}
+            onClick={() => openEditTodoModal(todo)}
+          >
+            修正
+          </button>
+          <button
+            className="todo-delete-button"
+            type="button"
+            disabled={isLoadingTodos}
+            onClick={() => setPendingTodoDeletion(todo)}
+          >
+            削除
+          </button>
+        </div>
       </article>
     )
   }
@@ -449,6 +547,109 @@ export function TodoPage({ isActive }: FeaturePageProps) {
         </div>
       ) : null}
 
+      {editingTodo ? (
+        <div
+          className="todo-add-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeEditTodoModal()
+            }
+          }}
+        >
+          <section
+            aria-labelledby="todo-edit-modal-title"
+            aria-modal="true"
+            className="todo-add-modal"
+            role="dialog"
+          >
+            <div className="todo-add-modal-header">
+              <h3 id="todo-edit-modal-title">ToDoを修正</h3>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={isLoadingTodos}
+                onClick={closeEditTodoModal}
+              >
+                閉じる
+              </button>
+            </div>
+
+            <form
+              className="todo-add-modal-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleUpdateTodo()
+              }}
+            >
+              <label className="todo-form-field todo-title-field">
+                <span>タスク名</span>
+                <input
+                  ref={editTodoTitleInputRef}
+                  type="text"
+                  value={editTodoTitle}
+                  onChange={(event) => setEditTodoTitle(event.target.value)}
+                />
+              </label>
+              <div className="todo-due-field">
+                <div className="todo-due-heading">
+                  <span>期限</span>
+                  <label className="todo-unlimited-option">
+                    <input
+                      type="checkbox"
+                      checked={isEditTodoUnlimited}
+                      onChange={(event) => {
+                        const isUnlimited = event.target.checked
+                        setIsEditTodoUnlimited(isUnlimited)
+
+                        if (isUnlimited) {
+                          setEditTodoDueDate('')
+                        }
+                      }}
+                    />
+                    <span>無期限</span>
+                  </label>
+                </div>
+                <input
+                  aria-label="修正するToDoの期限"
+                  type="date"
+                  disabled={isEditTodoUnlimited}
+                  value={editTodoDueDate}
+                  onChange={(event) => setEditTodoDueDate(event.target.value)}
+                />
+              </div>
+              <label className="todo-form-field">
+                <span>優先度</span>
+                <select
+                  className={`todo-priority-select priority-${editTodoPriority}`}
+                  value={editTodoPriority}
+                  onChange={(event) => setEditTodoPriority(event.target.value as TodoPriority)}
+                >
+                  <option value="low">低</option>
+                  <option value="normal">通常</option>
+                  <option value="high">高</option>
+                </select>
+              </label>
+
+              {editTodoMessage ? <p className="todo-add-modal-message">{editTodoMessage}</p> : null}
+
+              <div className="todo-add-modal-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={isLoadingTodos}
+                  onClick={closeEditTodoModal}
+                >
+                  キャンセル
+                </button>
+                <button className="todo-add-button" type="submit" disabled={isLoadingTodos}>
+                  {isLoadingTodos ? '更新中...' : '更新する'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
       <div className="todo-overview" aria-label="タスク件数">
         <span>
           すべて <strong>{todos.length}</strong>
@@ -466,9 +667,9 @@ export function TodoPage({ isActive }: FeaturePageProps) {
           <div className="todo-filter" aria-label="ToDo表示切り替え">
             {(
               [
-                ['all', 'すべて'],
                 ['active', '未完了'],
                 ['completed', '完了'],
+                ['all', 'すべて'],
               ] as Array<[TodoFilter, string]>
             ).map(([filter, label]) => (
               <button

@@ -717,6 +717,30 @@ function registerIpcHandlers() {
     }
   })
 
+  registerTrustedIpcHandler('todos:update', async (_event, id: number, todo: TodoInput) => {
+    const title = todo.title.trim()
+
+    if (!id) {
+      throw new Error('更新するタスクを確認してください。')
+    }
+    if (!title) {
+      throw new Error('タスク名を入力してください。')
+    }
+
+    const connection = createDatabaseConnection()
+
+    try {
+      await connection.execute(
+        'UPDATE todos SET title = ?, due_date = ?, priority = ? WHERE id = ?',
+        [title, todo.dueDate || null, normalizeTodoPriority(todo.priority), id],
+      )
+
+      return { id }
+    } finally {
+      await connection.end()
+    }
+  })
+
   registerTrustedIpcHandler('todos:delete', async (_event, id: number) => {
     if (!id) {
       throw new Error('削除するタスクを確認してください。')
