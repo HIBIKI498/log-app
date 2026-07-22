@@ -40,9 +40,10 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const loadDiarySettings = useCallback(async () => {
     try {
       const settings = await window.logApp.listSettings()
-      setFixedTags(settings.fixedTags)
+      const diaryTags = settings.fixedTags.filter((tag) => tag.entryKinds.includes('diary'))
+      setFixedTags(diaryTags)
       setSelectedFixedTagIds((currentIds) =>
-        currentIds.filter((id) => settings.fixedTags.some((tag) => tag.id === id)),
+        currentIds.filter((id) => diaryTags.some((tag) => tag.id === id)),
       )
       setHabitSettings(settings.habits)
       setHabitChecks((currentChecks) =>

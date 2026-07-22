@@ -83,7 +83,6 @@ button {
 }
 
 .view-tabs button,
-.tag-filter button,
 .history-tags button,
 .secondary-button {
   border: 1px solid #c7c7c7;
@@ -95,14 +94,12 @@ button {
 }
 
 .view-tabs button:hover,
-.tag-filter button:hover,
 .history-tags button:hover,
 .secondary-button:hover {
   background: #f2f2f2;
 }
 
-.view-tabs button.active,
-.tag-filter button.active {
+.view-tabs button.active {
   border-color: #006bd6;
   color: #ffffff;
   background: #006bd6;
@@ -752,15 +749,10 @@ button {
   text-align: center;
 }
 
-.tag-filter,
 .history-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.tag-filter {
-  margin-bottom: 16px;
 }
 
 .history-kind-tabs {
@@ -810,14 +802,20 @@ button {
   font-weight: 700;
 }
 
-.history-search-form input {
+.history-search-form input,
+.history-search-form select {
   width: 100%;
+  min-height: 38px;
   border: 1px solid #c9c9c9;
   border-radius: 4px;
   padding: 8px 9px;
   color: #111111;
   background: #ffffff;
   font-weight: 400;
+}
+
+.history-search-form select {
+  cursor: pointer;
 }
 
 .history-search-actions {
@@ -1362,14 +1360,59 @@ button {
 }
 
 .settings-field,
-.settings-schedule-field {
+.settings-schedule-field,
+.settings-tag-target-field {
   display: grid;
   gap: 7px;
 }
 
 .settings-field span,
-.settings-schedule-field > span {
+.settings-schedule-field > span,
+.settings-tag-target-field > span {
   font-weight: 700;
+}
+
+.tag-target-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-target-selector label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 88px;
+  border: 1px solid #c8ced6;
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #283746;
+  background: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-target-selector label:has(input:checked) {
+  border-color: #75a9dc;
+  color: #0056ad;
+  background: #eaf4ff;
+}
+
+.tag-target-selector input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #006bd6;
+}
+
+.tag-target-selector label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.settings-tag-target-field small {
+  color: #586877;
+  font-size: 12px;
 }
 
 .weekday-selector {
@@ -1435,7 +1478,8 @@ button {
 }
 
 .settings-field input,
-.settings-item input {
+.settings-item-main > input,
+.settings-item-compact > input {
   width: 100%;
   border: 1px solid #c9c9c9;
   border-radius: 4px;

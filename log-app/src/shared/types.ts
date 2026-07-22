@@ -15,4 +15,5 @@ export type HabitSetting = SettingsItem & {
 
 export type FixedTagSetting = SettingsItem & {
   isFixed: boolean
+  entryKinds: EntryKind[]
 }

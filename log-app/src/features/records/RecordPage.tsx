@@ -25,9 +25,10 @@ export function RecordPage({ isActive }: FeaturePageProps) {
   const loadRecordSettings = useCallback(async () => {
     try {
       const settings = await window.logApp.listSettings()
-      setFixedTags(settings.fixedTags)
+      const recordTags = settings.fixedTags.filter((tag) => tag.entryKinds.includes('record'))
+      setFixedTags(recordTags)
       setSelectedFixedTagIds((currentIds) =>
-        currentIds.filter((id) => settings.fixedTags.some((tag) => tag.id === id)),
+        currentIds.filter((id) => recordTags.some((tag) => tag.id === id)),
       )
     } catch (error) {
       console.error('記録用設定の取得に失敗しました:', error)

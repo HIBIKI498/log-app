@@ -157,6 +157,12 @@ type SettingsTagRow = {
   id: number
   name: string
   isFixed: number
+  useInDiary: number
+  useInRecord: number
+}
+
+type TagNameRow = {
+  name: string
 }
 
 type SettingsHabitRow = {
@@ -441,9 +447,27 @@ async function ensureDatabaseSchema() {
       CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        is_fixed INTEGER NOT NULL DEFAULT 0
+        is_fixed INTEGER NOT NULL DEFAULT 0,
+        use_in_diary INTEGER NOT NULL DEFAULT 1,
+        use_in_record INTEGER NOT NULL DEFAULT 1
       )
     `)
+
+    const [tagColumns] = await connection.execute<Array<{ name: string }>>(
+      "SELECT name FROM pragma_table_info('tags')",
+    )
+
+    // 既存タグは日記・記録の両方で利用できる状態を維持する。
+    if (!tagColumns.some((column) => column.name === 'use_in_diary')) {
+      await connection.execute(
+        'ALTER TABLE tags ADD COLUMN use_in_diary INTEGER NOT NULL DEFAULT 1',
+      )
+    }
+    if (!tagColumns.some((column) => column.name === 'use_in_record')) {
+      await connection.execute(
+        'ALTER TABLE tags ADD COLUMN use_in_record INTEGER NOT NULL DEFAULT 1',
+      )
+    }
 
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS entry_tags (
@@ -548,6 +572,12 @@ function normalizeEntryKind(kind?: string): EntryKind {
   return kind === 'record' ? 'record' : 'diary'
 }
 
+function normalizeTagEntryKinds(entryKinds: string[] = []): EntryKind[] {
+  return [...new Set(entryKinds.filter((kind): kind is EntryKind => (
+    kind === 'diary' || kind === 'record'
+  )))]
+}
+
 // タイトルが空の時は、履歴で見失わないよう「無題」として保存する。
 function normalizeEntryTitle(title?: string) {
   const trimmedTitle = title?.trim()
@@ -642,6 +672,28 @@ function registerTrustedIpcHandler<Args extends unknown[], Result>(
 
 // Renderer から呼び出す保存処理を IPC として登録する。
 function registerIpcHandlers() {
+  registerTrustedIpcHandler('entries:list-tags', async (_event, kind?: string) => {
+    const connection = createDatabaseConnection()
+
+    try {
+      const [rows] = await connection.execute<TagNameRow[]>(
+        `
+          SELECT DISTINCT t.name
+          FROM tags t
+          INNER JOIN entry_tags et ON t.id = et.tag_id
+          INNER JOIN entries e ON et.entry_id = e.id
+          WHERE e.entry_type = ?
+          ORDER BY t.name COLLATE NOCASE
+        `,
+        [normalizeEntryKind(kind)],
+      )
+
+      return rows.map((row) => row.name)
+    } finally {
+      await connection.end()
+    }
+  })
+
   registerTrustedIpcHandler('todos:list', async () => {
     const connection = createDatabaseConnection()
 
@@ -796,7 +848,17 @@ function registerIpcHandlers() {
     try {
       // 設定画面で編集する固定タグ、習慣項目をまとめて取得する。
       const [fixedTags] = await connection.execute<SettingsTagRow[]>(
-        'SELECT id, name, is_fixed AS isFixed FROM tags WHERE is_fixed = ? ORDER BY name',
+        `
+          SELECT
+            id,
+            name,
+            is_fixed AS isFixed,
+            use_in_diary AS useInDiary,
+            use_in_record AS useInRecord
+          FROM tags
+          WHERE is_fixed = ?
+          ORDER BY name
+        `,
         [1],
       )
       const [habits] = await connection.execute<SettingsHabitRow[]>(
@@ -825,6 +887,10 @@ function registerIpcHandlers() {
           id: tag.id,
           name: tag.name,
           isFixed: Boolean(tag.isFixed),
+          entryKinds: [
+            ...(tag.useInDiary ? ['diary' as const] : []),
+            ...(tag.useInRecord ? ['record' as const] : []),
+          ],
         })),
         habits: habits.map((habit) => ({
           id: habit.id,
@@ -839,12 +905,23 @@ function registerIpcHandlers() {
     }
   })
 
-  registerTrustedIpcHandler('settings:add-fixed-tag', async (_event, name: string) => {
+  registerTrustedIpcHandler('settings:add-fixed-tag', async (
+    _event,
+    name: string,
+    entryKinds: string[],
+  ) => {
     const trimmedName = name.trim()
+    const normalizedEntryKinds = normalizeTagEntryKinds(entryKinds)
 
     if (!trimmedName) {
       throw new Error('タグ名を入力してください。')
     }
+    if (normalizedEntryKinds.length === 0) {
+      throw new Error('タグを使用する画面を選択してください。')
+    }
+
+    const useInDiary = normalizedEntryKinds.includes('diary') ? 1 : 0
+    const useInRecord = normalizedEntryKinds.includes('record') ? 1 : 0
 
     const connection = createDatabaseConnection()
 
@@ -855,13 +932,19 @@ function registerIpcHandlers() {
       )
 
       if (rows[0]) {
-        await connection.execute('UPDATE tags SET is_fixed = ? WHERE id = ?', [1, rows[0].id])
+        await connection.execute(
+          'UPDATE tags SET is_fixed = ?, use_in_diary = ?, use_in_record = ? WHERE id = ?',
+          [1, useInDiary, useInRecord, rows[0].id],
+        )
         return { id: rows[0].id }
       }
 
       const [result] = await connection.execute<SqliteResult>(
-        'INSERT INTO tags (name, is_fixed) VALUES (?, ?)',
-        [trimmedName, 1],
+        `
+          INSERT INTO tags (name, is_fixed, use_in_diary, use_in_record)
+          VALUES (?, ?, ?, ?)
+        `,
+        [trimmedName, 1, useInDiary, useInRecord],
       )
 
       return { id: result.insertId }
@@ -870,21 +953,39 @@ function registerIpcHandlers() {
     }
   })
 
-  registerTrustedIpcHandler('settings:update-fixed-tag', async (_event, id: number, name: string) => {
+  registerTrustedIpcHandler('settings:update-fixed-tag', async (
+    _event,
+    id: number,
+    name: string,
+    entryKinds: string[],
+  ) => {
     const trimmedName = name.trim()
+    const normalizedEntryKinds = normalizeTagEntryKinds(entryKinds)
 
     if (!trimmedName) {
       throw new Error('タグ名を入力してください。')
+    }
+    if (normalizedEntryKinds.length === 0) {
+      throw new Error('タグを使用する画面を選択してください。')
     }
 
     const connection = createDatabaseConnection()
 
     try {
-      await connection.execute('UPDATE tags SET name = ?, is_fixed = ? WHERE id = ?', [
-        trimmedName,
-        1,
-        id,
-      ])
+      await connection.execute(
+        `
+          UPDATE tags
+          SET name = ?, is_fixed = ?, use_in_diary = ?, use_in_record = ?
+          WHERE id = ?
+        `,
+        [
+          trimmedName,
+          1,
+          normalizedEntryKinds.includes('diary') ? 1 : 0,
+          normalizedEntryKinds.includes('record') ? 1 : 0,
+          id,
+        ],
+      )
 
       return { id }
     } finally {

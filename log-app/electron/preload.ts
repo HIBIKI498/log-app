@@ -60,7 +60,7 @@ type HabitSettingItem = SettingsItem & {
 }
 
 type SettingsData = {
-  fixedTags: Array<SettingsItem & { isFixed: boolean }>
+  fixedTags: Array<SettingsItem & { isFixed: boolean; entryKinds: EntryKind[] }>
   habits: HabitSettingItem[]
 }
 
@@ -83,8 +83,8 @@ contextBridge.exposeInMainWorld('logApp', {
   addTodo(todo: TodoInput) {
     return ipcRenderer.invoke('todos:add', todo) as Promise<{ id: number }>
   },
-  addFixedTag(name: string) {
-    return ipcRenderer.invoke('settings:add-fixed-tag', name) as Promise<{ id: number }>
+  addFixedTag(name: string, entryKinds: EntryKind[]) {
+    return ipcRenderer.invoke('settings:add-fixed-tag', name, entryKinds) as Promise<{ id: number }>
   },
   addHabit(name: string, weekdays: number[]) {
     return ipcRenderer.invoke('settings:add-habit', name, weekdays) as Promise<{ id: number }>
@@ -104,6 +104,9 @@ contextBridge.exposeInMainWorld('logApp', {
   listEntries(filters: EntrySearchFilters = {}) {
     return ipcRenderer.invoke('entries:list', filters) as Promise<EntryHistoryItem[]>
   },
+  listEntryTags(kind: EntryKind) {
+    return ipcRenderer.invoke('entries:list-tags', kind) as Promise<string[]>
+  },
   listHabitAchievementReports() {
     return ipcRenderer.invoke(
       'reports:habit-achievements',
@@ -118,8 +121,8 @@ contextBridge.exposeInMainWorld('logApp', {
   saveEntry(entry: SaveEntryInput) {
     return ipcRenderer.invoke('entries:save', entry)
   },
-  updateFixedTag(id: number, name: string) {
-    return ipcRenderer.invoke('settings:update-fixed-tag', id, name) as Promise<{ id: number }>
+  updateFixedTag(id: number, name: string, entryKinds: EntryKind[]) {
+    return ipcRenderer.invoke('settings:update-fixed-tag', id, name, entryKinds) as Promise<{ id: number }>
   },
   updateHabit(id: number, name: string, weekdays: number[]) {
     return ipcRenderer.invoke('settings:update-habit', id, name, weekdays) as Promise<{

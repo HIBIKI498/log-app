@@ -2,7 +2,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DeleteConfirmationModal } from './DeleteConfirmationModal'
 import { WEEKDAYS } from './habits'
-import type { FixedTagSetting, HabitSetting } from './types'
+import { TagEntryKindSelector } from './TagEntryKindSelector'
+import type { EntryKind, FixedTagSetting, HabitSetting } from './types'
 
 export type SettingsModalTarget = 'tag' | 'habit'
 export type SettingsModalMode = 'add' | 'manage'
@@ -37,6 +38,7 @@ export function SettingsModal({
   const [fixedTags, setFixedTags] = useState<FixedTagSetting[]>([])
   const [habits, setHabits] = useState<HabitSetting[]>([])
   const [newName, setNewName] = useState('')
+  const [newTagEntryKinds, setNewTagEntryKinds] = useState<EntryKind[]>(['diary', 'record'])
   const [newHabitWeekdays, setNewHabitWeekdays] = useState<number[]>(ALL_WEEKDAYS)
   const [message, setMessage] = useState('')
   const [isWorking, setIsWorking] = useState(false)
@@ -168,13 +170,18 @@ export function SettingsModal({
       setMessage('実行する曜日を選択してください。')
       return
     }
+    if (target === 'tag' && newTagEntryKinds.length === 0) {
+      setMessage('タグを使用する画面を選択してください。')
+      return
+    }
 
     setIsWorking(true)
     setMessage('')
 
     try {
       if (target === 'tag') {
-        await window.logApp.addFixedTag(trimmedName)
+        await window.logApp.addFixedTag(trimmedName, newTagEntryKinds)
+        setNewTagEntryKinds(['diary', 'record'])
         await refreshAfterChange('タグを追加しました。')
       } else {
         await window.logApp.addHabit(trimmedName, newHabitWeekdays)
@@ -196,12 +203,16 @@ export function SettingsModal({
       setMessage('タグ名を入力してください。')
       return
     }
+    if (tag.entryKinds.length === 0) {
+      setMessage('タグを使用する画面を選択してください。')
+      return
+    }
 
     setIsWorking(true)
     setMessage('')
 
     try {
-      await window.logApp.updateFixedTag(tag.id, tag.name.trim())
+      await window.logApp.updateFixedTag(tag.id, tag.name.trim(), tag.entryKinds)
       await refreshAfterChange('タグを更新しました。')
     } catch (error) {
       console.error('タグの更新に失敗しました:', error)
@@ -341,6 +352,14 @@ export function SettingsModal({
                 onChange={(event) => setNewName(event.target.value)}
               />
             </label>
+            {target === 'tag' ? (
+              <TagEntryKindSelector
+                ariaLabel="新しいタグを使用する画面"
+                disabled={isWorking}
+                entryKinds={newTagEntryKinds}
+                onChange={setNewTagEntryKinds}
+              />
+            ) : null}
             {target === 'habit' ? (
               <div className="settings-schedule-field">
                 <span>実行曜日</span>
@@ -374,38 +393,54 @@ export function SettingsModal({
             <div className="settings-list settings-modal-list">
               {target === 'tag' && fixedTags.length > 0
                 ? fixedTags.map((tag) => (
-                    <div className="settings-item settings-item-compact" key={tag.id}>
-                      <input
-                        aria-label={`${tag.name}のタグ名`}
-                        type="text"
-                        value={tag.name}
-                        onChange={(event) =>
+                    <div className="settings-item settings-tag-item" key={tag.id}>
+                      <div className="settings-item-main">
+                        <input
+                          aria-label={`${tag.name}のタグ名`}
+                          type="text"
+                          value={tag.name}
+                          onChange={(event) =>
+                            setFixedTags((currentTags) =>
+                              currentTags.map((currentTag) =>
+                                currentTag.id === tag.id
+                                  ? { ...currentTag, name: event.target.value }
+                                  : currentTag,
+                              ),
+                            )
+                          }
+                        />
+                        <div className="settings-item-actions">
+                          <button
+                            type="button"
+                            disabled={isWorking}
+                            onClick={() => void handleUpdateTag(tag)}
+                          >
+                            更新
+                          </button>
+                          <button
+                            className="danger-button"
+                            type="button"
+                            disabled={isWorking}
+                            onClick={() => setPendingDeletion({ target: 'tag', item: tag })}
+                          >
+                            解除
+                          </button>
+                        </div>
+                      </div>
+                      <TagEntryKindSelector
+                        ariaLabel={`${tag.name}を使用する画面`}
+                        disabled={isWorking}
+                        entryKinds={tag.entryKinds}
+                        onChange={(entryKinds) =>
                           setFixedTags((currentTags) =>
                             currentTags.map((currentTag) =>
                               currentTag.id === tag.id
-                                ? { ...currentTag, name: event.target.value }
+                                ? { ...currentTag, entryKinds }
                                 : currentTag,
                             ),
                           )
                         }
                       />
-                      <div className="settings-item-actions">
-                        <button
-                          type="button"
-                          disabled={isWorking}
-                          onClick={() => void handleUpdateTag(tag)}
-                        >
-                          更新
-                        </button>
-                        <button
-                          className="danger-button"
-                          type="button"
-                          disabled={isWorking}
-                          onClick={() => setPendingDeletion({ target: 'tag', item: tag })}
-                        >
-                          解除
-                        </button>
-                      </div>
                     </div>
                   ))
                 : null}

@@ -63,6 +63,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const [isMutatingHistory, setIsMutatingHistory] = useState(false)
   const [historyKeyword, setHistoryKeyword] = useState('')
   const [historyTag, setHistoryTag] = useState('')
+  const [historyTagOptions, setHistoryTagOptions] = useState<string[]>([])
   const [historyStartDate, setHistoryStartDate] = useState('')
   const [historyEndDate, setHistoryEndDate] = useState('')
   const [historySearchFilters, setHistorySearchFilters] =
@@ -70,9 +71,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const [historyEditDraft, setHistoryEditDraft] = useState<HistoryEditDraft | null>(null)
   const [pendingHistoryDeletion, setPendingHistoryDeletion] = useState<HistoryEntry | null>(null)
   const [expandedHistoryDetailIds, setExpandedHistoryDetailIds] = useState<number[]>([])
-
-  const selectedTag = historySearchFilters.tag
-  const historyTags = [...new Set(historyEntries.flatMap((entry) => entry.tags))].sort()
 
   const toggleHistoryDetail = (entryId: number) => {
     setExpandedHistoryDetailIds((currentIds) =>
@@ -108,11 +106,27 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     }
   }, [historyKind, historySearchFilters])
 
+  const loadHistoryTagOptions = useCallback(async () => {
+    try {
+      const tags = await window.logApp.listEntryTags(historyKind)
+      setHistoryTagOptions(tags)
+    } catch (error) {
+      console.error('履歴検索用タグの取得に失敗しました:', error)
+      setHistoryMessage('タグ候補の取得に失敗しました。SQLite の接続状態を確認してください。')
+    }
+  }, [historyKind])
+
   useEffect(() => {
     if (isActive) {
       void loadHistoryEntries()
     }
   }, [isActive, loadHistoryEntries])
+
+  useEffect(() => {
+    if (isActive) {
+      void loadHistoryTagOptions()
+    }
+  }, [isActive, loadHistoryTagOptions])
 
   const handleHistorySearch = () => {
     if (historyStartDate && historyEndDate && historyStartDate > historyEndDate) {
@@ -259,7 +273,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
 
       const updatedKindLabel = ENTRY_KIND_LABELS[historyEditDraft.kind]
       setHistoryEditDraft(null)
-      await loadHistoryEntries()
+      await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
       setHistoryMessage(`${updatedKindLabel}を更新しました。タグ: ${result.tagCount}件`)
     } catch (error) {
       console.error('履歴の更新に失敗しました:', error)
@@ -282,7 +296,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       const deletedKindLabel = ENTRY_KIND_LABELS[pendingHistoryDeletion.kind]
       setPendingHistoryDeletion(null)
       setHistoryEditDraft(null)
-      await loadHistoryEntries()
+      await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
       setHistoryMessage(`${deletedKindLabel}を削除しました。`)
     } catch (error) {
       console.error('履歴の削除に失敗しました:', error)
@@ -342,13 +356,18 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           />
         </label>
         <label>
-          <span>タグ名（完全一致）</span>
-          <input
-            type="search"
-            placeholder="例: 仕事"
+          <span>タグ</span>
+          <select
             value={historyTag}
             onChange={(event) => setHistoryTag(event.target.value)}
-          />
+          >
+            <option value="">すべてのタグ</option>
+            {historyTagOptions.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           <span>開始日</span>
@@ -380,28 +399,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           </button>
         </div>
       </form>
-
-      {historyTags.length > 0 ? (
-        <div className="tag-filter" aria-label="タグで絞り込み">
-          <button
-            className={!selectedTag ? 'active' : ''}
-            type="button"
-            onClick={() => applyHistoryTagFilter('')}
-          >
-            すべて
-          </button>
-          {historyTags.map((tag) => (
-            <button
-              className={selectedTag === tag ? 'active' : ''}
-              key={tag}
-              type="button"
-              onClick={() => applyHistoryTagFilter(tag)}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      ) : null}
 
       {historyMessage ? <p className="history-message">{historyMessage}</p> : null}
       {!historyMessage ? (

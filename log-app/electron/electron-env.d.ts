@@ -74,7 +74,7 @@ type HabitSettingItem = SettingsItem & {
 }
 
 type SettingsData = {
-  fixedTags: Array<SettingsItem & { isFixed: boolean }>
+  fixedTags: Array<SettingsItem & { isFixed: boolean; entryKinds: EntryKind[] }>
   habits: HabitSettingItem[]
 }
 
@@ -96,18 +96,19 @@ type TodoItem = Omit<TodoInput, 'dueDate'> & {
 interface Window {
   logApp: {
     addTodo(todo: TodoInput): Promise<{ id: number }>
-    addFixedTag(name: string): Promise<{ id: number }>
+    addFixedTag(name: string, entryKinds: EntryKind[]): Promise<{ id: number }>
     addHabit(name: string, weekdays: number[]): Promise<{ id: number }>
     deleteFixedTag(id: number): Promise<{ id: number }>
     deleteHabit(id: number): Promise<{ id: number }>
     deleteTodo(id: number): Promise<{ id: number }>
     deleteEntry(id: number): Promise<{ id: number }>
     listEntries(filters?: EntrySearchFilters): Promise<EntryHistoryItem[]>
+    listEntryTags(kind: EntryKind): Promise<string[]>
     listHabitAchievementReports(): Promise<HabitAchievementReportItem[]>
     listSettings(): Promise<SettingsData>
     listTodos(): Promise<TodoItem[]>
     saveEntry(entry: SaveEntryInput): Promise<SaveEntryResult>
-    updateFixedTag(id: number, name: string): Promise<{ id: number }>
+    updateFixedTag(id: number, name: string, entryKinds: EntryKind[]): Promise<{ id: number }>
     updateHabit(id: number, name: string, weekdays: number[]): Promise<{ id: number }>
     updateTodoStatus(id: number, isDone: boolean): Promise<{ id: number }>
     updateTodo(id: number, todo: TodoInput): Promise<{ id: number }>
