@@ -141,6 +141,12 @@ export function RecordPage({ isActive }: FeaturePageProps) {
       hidden={!isActive}
       onSubmit={(event) => {
         event.preventDefault()
+
+        // 設定モーダルなど、子コンポーネントのフォーム送信では記録を保存しない。
+        if (event.target !== event.currentTarget) {
+          return
+        }
+
         void handleSave()
       }}
     >

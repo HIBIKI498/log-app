@@ -161,6 +161,12 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
       hidden={!isActive}
       onSubmit={(event) => {
         event.preventDefault()
+
+        // 設定モーダルなど、子コンポーネントのフォーム送信では日記を保存しない。
+        if (event.target !== event.currentTarget) {
+          return
+        }
+
         void handleSave()
       }}
     >

@@ -339,6 +339,8 @@ export function SettingsModal({
             className="settings-add-form settings-modal-add-form"
             onSubmit={(event) => {
               event.preventDefault()
+              // Portal 内の送信イベントが日記・記録の保存フォームへ伝わるのを防ぐ。
+              event.stopPropagation()
               void handleAdd()
             }}
           >
