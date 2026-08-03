@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DeleteConfirmationModal } from '../../shared/DeleteConfirmationModal'
 import { WEEKDAYS } from '../../shared/habits'
-import { TagEntryKindSelector } from '../../shared/TagEntryKindSelector'
 import type {
-  EntryKind,
   FeaturePageProps,
   FixedTagSetting,
   HabitSetting,
@@ -46,10 +44,6 @@ export function TagsPage({ isActive }: FeaturePageProps) {
   const [fixedTags, setFixedTags] = useState<FixedTagSetting[]>([])
   const [habitSettings, setHabitSettings] = useState<HabitSetting[]>([])
   const [newFixedTagName, setNewFixedTagName] = useState('')
-  const [newFixedTagEntryKinds, setNewFixedTagEntryKinds] = useState<EntryKind[]>([
-    'diary',
-    'record',
-  ])
   const [newHabitName, setNewHabitName] = useState('')
   const [newHabitWeekdays, setNewHabitWeekdays] = useState<number[]>(
     WEEKDAYS.map((weekday) => weekday.value),
@@ -93,18 +87,12 @@ export function TagsPage({ isActive }: FeaturePageProps) {
       setSettingsMessage('固定タグ名を入力してください。')
       return
     }
-    if (newFixedTagEntryKinds.length === 0) {
-      setSettingsMessage('タグを使用する画面を選択してください。')
-      return
-    }
-
     setIsLoadingSettings(true)
     setSettingsMessage('')
 
     try {
-      await window.logApp.addFixedTag(newFixedTagName, newFixedTagEntryKinds)
+      await window.logApp.addFixedTag(newFixedTagName)
       setNewFixedTagName('')
-      setNewFixedTagEntryKinds(['diary', 'record'])
       await loadSettings()
       setSettingsMessage('固定タグを保存しました。')
     } catch (error) {
@@ -120,16 +108,11 @@ export function TagsPage({ isActive }: FeaturePageProps) {
       setSettingsMessage('固定タグ名を入力してください。')
       return
     }
-    if (tag.entryKinds.length === 0) {
-      setSettingsMessage('タグを使用する画面を選択してください。')
-      return
-    }
-
     setIsLoadingSettings(true)
     setSettingsMessage('')
 
     try {
-      await window.logApp.updateFixedTag(tag.id, tag.name, tag.entryKinds)
+      await window.logApp.updateFixedTag(tag.id, tag.name)
       await loadSettings()
       setSettingsMessage('固定タグを更新しました。')
     } catch (error) {
@@ -302,12 +285,6 @@ export function TagsPage({ isActive }: FeaturePageProps) {
                 追加
               </button>
             </div>
-            <TagEntryKindSelector
-              ariaLabel="新しい固定タグを使用する画面"
-              disabled={isLoadingSettings}
-              entryKinds={newFixedTagEntryKinds}
-              onChange={setNewFixedTagEntryKinds}
-            />
           </form>
 
           <div className="settings-existing-section">
@@ -352,20 +329,6 @@ export function TagsPage({ isActive }: FeaturePageProps) {
                         </button>
                       </div>
                     </div>
-                    <TagEntryKindSelector
-                      ariaLabel={`${tag.name}を使用する画面`}
-                      disabled={isLoadingSettings}
-                      entryKinds={tag.entryKinds}
-                      onChange={(entryKinds) =>
-                        setFixedTags((currentTags) =>
-                          currentTags.map((currentTag) =>
-                            currentTag.id === tag.id
-                              ? { ...currentTag, entryKinds }
-                              : currentTag,
-                          ),
-                        )
-                      }
-                    />
                   </div>
                 ))
               ) : (

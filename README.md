@@ -1,6 +1,6 @@
 # log-app
 
-日記、記録、習慣トラッカー、ToDo をまとめて管理する PC 向けデスクトップアプリです。
+日記、習慣トラッカー、ToDo をまとめて管理する PC 向けデスクトップアプリです。
 
 Electron + React + TypeScript + Vite + SQLite で開発しています。Windows 用インストーラーとポータブル版をビルドできます。
 
@@ -55,7 +55,6 @@ npm run build
 ## 主な機能
 
 - 日記の作成、編集、削除
-- 軽い記録メモの作成、編集、削除
 - 固定タグと自由入力タグによる分類
 - 履歴検索、日付範囲検索、タグ絞り込み
 - 箇条書きメモの入力補助
@@ -79,7 +78,6 @@ log-app/
     │   ├── index.css
     │   ├── features/
     │   │   ├── diary/DiaryPage.tsx
-    │   │   ├── records/RecordPage.tsx
     │   │   ├── history/HistoryPage.tsx
     │   │   ├── reports/ReportsPage.tsx
     │   │   ├── tags/TagsPage.tsx
@@ -98,8 +96,7 @@ log-app/
 ## 主なファイル
 
 - `log-app/src/features/diary/DiaryPage.tsx`: 日記の入力、タグ、箇条書きメモ、習慣チェックを担当します。
-- `log-app/src/features/records/RecordPage.tsx`: 軽い記録メモの入力を担当します。
-- `log-app/src/features/history/HistoryPage.tsx`: 日記と記録の検索、編集、削除を担当します。
+- `log-app/src/features/history/HistoryPage.tsx`: 日記の検索、編集、削除を担当します。
 - `log-app/src/features/reports/ReportsPage.tsx`: 習慣達成率のレポートを担当します。
 - `log-app/src/features/tags/TagsPage.tsx`: 固定タグと習慣項目の管理を担当します。
 - `log-app/src/features/todos/TodoPage.tsx`: ToDo の追加、更新、削除を担当します。
@@ -110,17 +107,21 @@ log-app/
 
 主なテーブル:
 
-- `entries`: 日記・記録の本体
+- `entries`: 日記の本体
 - `tags`: タグのマスターデータ
-- `entry_tags`: 日記・記録とタグの紐付け
+- `entry_tags`: 日記とタグの紐付け
 - `habits`: 習慣項目のマスターデータ
 - `habit_schedules`: 習慣項目と実行曜日の紐付け
 - `habit_logs`: 習慣の実行記録
 - `todos`: ToDo タスク
 
+記録機能を含む旧バージョンのデータベースは、更新後の初回起動時に同じフォルダーへ
+`log-app.before-record-removal-<日時>.db` の形式でバックアップされます。バックアップ作成後、
+旧「記録」データと記録専用タグを削除し、日記専用の構造へ自動移行します。習慣の実行記録は保持されます。
+
 ## データとプライバシー
 
-- 日記、記録、習慣、ToDo は外部サーバーへ送信せず、端末内の SQLite に保存します。
+- 日記、習慣、ToDo は外部サーバーへ送信せず、端末内の SQLite に保存します。
 - データベースは暗号化されません。端末を共有する場合は OS のアカウントとディスク暗号化を利用してください。
 - 通常の保存先は Electron の `userData` フォルダーです。アンインストールしてもデータは自動削除されません。
 - インストーラー版は、更新確認のため GitHub Releases に接続します。

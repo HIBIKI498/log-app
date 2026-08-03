@@ -3,11 +3,10 @@ import {
   createInitialBulletPointLine,
   insertBulletPointLine,
 } from '../../shared/bulletPoints'
-import type { EntryKind, FeaturePageProps } from '../../shared/types'
+import type { FeaturePageProps } from '../../shared/types'
 
 type HistoryEntry = {
   id: number
-  kind: EntryKind
   date: string
   title: string
   content: string
@@ -16,7 +15,6 @@ type HistoryEntry = {
 }
 
 type HistorySearchFilters = {
-  kind: EntryKind
   keyword: string
   tag: string
   startDate: string
@@ -25,7 +23,6 @@ type HistorySearchFilters = {
 
 type HistoryEditDraft = {
   id: number
-  kind: EntryKind
   date: string
   title: string
   content: string
@@ -33,14 +30,8 @@ type HistoryEditDraft = {
   tags: string
 }
 
-const ENTRY_KIND_LABELS: Record<EntryKind, string> = {
-  diary: '日記',
-  record: '記録',
-}
-
-function createEmptyFilters(kind: EntryKind): HistorySearchFilters {
+function createEmptyFilters(): HistorySearchFilters {
   return {
-    kind,
     keyword: '',
     tag: '',
     startDate: '',
@@ -56,7 +47,6 @@ function splitBulletPoints(bulletPoints: string) {
 }
 
 export function HistoryPage({ isActive }: FeaturePageProps) {
-  const [historyKind, setHistoryKind] = useState<EntryKind>('diary')
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
   const [historyMessage, setHistoryMessage] = useState('')
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
@@ -67,7 +57,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const [historyStartDate, setHistoryStartDate] = useState('')
   const [historyEndDate, setHistoryEndDate] = useState('')
   const [historySearchFilters, setHistorySearchFilters] =
-    useState<HistorySearchFilters>(() => createEmptyFilters('diary'))
+    useState<HistorySearchFilters>(createEmptyFilters)
   const [historyEditDraft, setHistoryEditDraft] = useState<HistoryEditDraft | null>(null)
   const [pendingHistoryDeletion, setPendingHistoryDeletion] = useState<HistoryEntry | null>(null)
   const [expandedHistoryDetailIds, setExpandedHistoryDetailIds] = useState<number[]>([])
@@ -89,13 +79,11 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       setHistoryEntries(entries)
 
       if (entries.length === 0) {
-        const hasSearchCondition = Object.entries(historySearchFilters).some(
-          ([key, value]) => key !== 'kind' && value !== undefined && value !== '',
-        )
+        const hasSearchCondition = Object.values(historySearchFilters).some(Boolean)
         setHistoryMessage(
           hasSearchCondition
-            ? `検索条件に一致する${ENTRY_KIND_LABELS[historyKind]}がありません。`
-            : `まだ${ENTRY_KIND_LABELS[historyKind]}がありません。`,
+            ? '検索条件に一致する日記がありません。'
+            : 'まだ日記がありません。',
         )
       }
     } catch (error) {
@@ -104,17 +92,17 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     } finally {
       setIsLoadingHistory(false)
     }
-  }, [historyKind, historySearchFilters])
+  }, [historySearchFilters])
 
   const loadHistoryTagOptions = useCallback(async () => {
     try {
-      const tags = await window.logApp.listEntryTags(historyKind)
+      const tags = await window.logApp.listEntryTags()
       setHistoryTagOptions(tags)
     } catch (error) {
       console.error('履歴検索用タグの取得に失敗しました:', error)
       setHistoryMessage('タグ候補の取得に失敗しました。SQLite の接続状態を確認してください。')
     }
-  }, [historyKind])
+  }, [])
 
   useEffect(() => {
     if (isActive) {
@@ -138,7 +126,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setPendingHistoryDeletion(null)
     setExpandedHistoryDetailIds([])
     setHistorySearchFilters({
-      kind: historyKind,
       keyword: historyKeyword.trim(),
       tag: historyTag.trim(),
       startDate: historyStartDate,
@@ -154,19 +141,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setHistoryEditDraft(null)
     setPendingHistoryDeletion(null)
     setExpandedHistoryDetailIds([])
-    setHistorySearchFilters(createEmptyFilters(historyKind))
-  }
-
-  const handleKindChange = (kind: EntryKind) => {
-    setHistoryKind(kind)
-    setHistoryKeyword('')
-    setHistoryTag('')
-    setHistoryStartDate('')
-    setHistoryEndDate('')
-    setHistoryEditDraft(null)
-    setPendingHistoryDeletion(null)
-    setExpandedHistoryDetailIds([])
-    setHistorySearchFilters(createEmptyFilters(kind))
+    setHistorySearchFilters(createEmptyFilters())
   }
 
   const applyHistoryTagFilter = (tag: string) => {
@@ -176,7 +151,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setExpandedHistoryDetailIds([])
     setHistorySearchFilters((currentFilters) => ({
       ...currentFilters,
-      kind: historyKind,
       tag,
     }))
   }
@@ -184,7 +158,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const startHistoryEdit = (entry: HistoryEntry) => {
     setHistoryEditDraft({
       id: entry.id,
-      kind: entry.kind,
       date: entry.date,
       title: entry.title,
       content: entry.content,
@@ -271,10 +244,9 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           .filter(Boolean),
       })
 
-      const updatedKindLabel = ENTRY_KIND_LABELS[historyEditDraft.kind]
       setHistoryEditDraft(null)
       await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
-      setHistoryMessage(`${updatedKindLabel}を更新しました。タグ: ${result.tagCount}件`)
+      setHistoryMessage(`日記を更新しました。タグ: ${result.tagCount}件`)
     } catch (error) {
       console.error('履歴の更新に失敗しました:', error)
       setHistoryMessage('履歴の更新に失敗しました。')
@@ -293,11 +265,10 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
 
     try {
       await window.logApp.deleteEntry(pendingHistoryDeletion.id)
-      const deletedKindLabel = ENTRY_KIND_LABELS[pendingHistoryDeletion.kind]
       setPendingHistoryDeletion(null)
       setHistoryEditDraft(null)
       await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
-      setHistoryMessage(`${deletedKindLabel}を削除しました。`)
+      setHistoryMessage('日記を削除しました。')
     } catch (error) {
       console.error('履歴の削除に失敗しました:', error)
       setHistoryMessage('履歴の削除に失敗しました。')
@@ -320,25 +291,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
         </button>
       </div>
 
-      <div className="history-kind-tabs" aria-label="履歴の種類">
-        {(
-          [
-            ['diary', '日記'],
-            ['record', '記録'],
-          ] as const
-        ).map(([kind, label]) => (
-          <button
-            aria-pressed={historyKind === kind}
-            className={historyKind === kind ? 'active' : ''}
-            key={kind}
-            type="button"
-            onClick={() => handleKindChange(kind)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       <form
         className="history-search-form"
         onSubmit={(event) => {
@@ -350,7 +302,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           <span>キーワード</span>
           <input
             type="search"
-            placeholder={`${ENTRY_KIND_LABELS[historyKind]}のキーワードを検索`}
+            placeholder="日記のキーワードを検索"
             value={historyKeyword}
             onChange={(event) => setHistoryKeyword(event.target.value)}
           />
@@ -458,7 +410,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                     />
                   </label>
                   <label className="history-edit-wide">
-                    <span>{entry.kind === 'diary' ? '出来事・日記' : '記録内容'}</span>
+                    <span>出来事・日記</span>
                     <textarea
                       rows={4}
                       value={historyEditDraft.content}
@@ -510,12 +462,11 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       <time dateTime={entry.date}>{entry.date}</time>
                       <h3>{entry.title || '無題'}</h3>
                     </div>
-                    <strong>{ENTRY_KIND_LABELS[entry.kind]}</strong>
                   </div>
                   {entry.content ? <p className="history-item-content">{entry.content}</p> : null}
                   {!entry.content ? (
                     <p className="history-item-content">
-                      {ENTRY_KIND_LABELS[entry.kind]}本文はありません。
+                      日記本文はありません。
                     </p>
                   ) : null}
                   {isDetailOpen ? (
@@ -580,7 +531,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
 
               {isPendingDeletion ? (
                 <div className="history-delete-confirmation">
-                  <p>この{ENTRY_KIND_LABELS[pendingHistoryDeletion.kind]}を削除しますか？</p>
+                  <p>この日記を削除しますか？</p>
                   <div>
                     <button
                       className="secondary-button"
