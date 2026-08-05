@@ -185,6 +185,48 @@ button {
   resize: vertical;
 }
 
+.wellbeing-fieldset,
+.history-wellbeing-editor {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #d9e3ee;
+  border-radius: 6px;
+  padding: 12px;
+  background: #f8fbfe;
+}
+
+.wellbeing-fieldset legend,
+.history-wellbeing-editor legend {
+  padding: 0 5px;
+  color: #111111;
+  font-weight: 700;
+}
+
+.wellbeing-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wellbeing-input-grid label {
+  display: grid;
+  gap: 6px;
+  color: #111111;
+  font-weight: 700;
+}
+
+.wellbeing-input-grid select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  padding: 9px 10px;
+  color: #111111;
+  background: #ffffff;
+  font-weight: 400;
+  cursor: pointer;
+}
+
 .fixed-tag-selector {
   display: flex;
   flex-wrap: wrap;
@@ -875,6 +917,28 @@ button {
   line-height: 1.35;
 }
 
+.history-wellbeing-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-wellbeing-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cad9e8;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #24384c;
+  background: #f3f8fd;
+  font-size: 14px;
+}
+
+.history-wellbeing-summary strong {
+  color: #111111;
+}
+
 .history-item p {
   margin: 0;
   color: #222222;
@@ -1532,6 +1596,7 @@ button {
   .report-summary,
   .history-edit-form,
   .history-search-form,
+  .wellbeing-input-grid,
   .todo-add-modal-form {
     grid-template-columns: 1fr;
   }

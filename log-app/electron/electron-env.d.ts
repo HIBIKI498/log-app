@@ -8,12 +8,16 @@ declare namespace NodeJS {
   }
 }
 
+type WellbeingScore = 1 | 2 | 3 | 4 | 5
+
 type SaveEntryInput = {
   date: string
   title: string
   tags: string[]
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   habits: Array<{
     id: number
     isDone: boolean
@@ -32,6 +36,8 @@ type EntryHistoryItem = {
   title: string
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   tags: string[]
 }
 
@@ -49,6 +55,8 @@ type UpdateEntryInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
 }
 
 type HabitAchievementReportItem = {

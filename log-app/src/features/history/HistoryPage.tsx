@@ -4,6 +4,13 @@ import {
   insertBulletPointLine,
 } from '../../shared/bulletPoints'
 import type { FeaturePageProps } from '../../shared/types'
+import {
+  CONDITION_OPTIONS,
+  formatWellbeingScore,
+  MOOD_OPTIONS,
+  parseWellbeingScore,
+  type WellbeingScore,
+} from '../../shared/wellbeing'
 
 type HistoryEntry = {
   id: number
@@ -11,6 +18,8 @@ type HistoryEntry = {
   title: string
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   tags: string[]
 }
 
@@ -27,6 +36,8 @@ type HistoryEditDraft = {
   title: string
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   tags: string
 }
 
@@ -162,6 +173,8 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       title: entry.title,
       content: entry.content,
       bulletPoints: entry.bulletPoints,
+      moodScore: entry.moodScore,
+      conditionScore: entry.conditionScore,
       tags: entry.tags.join(', '),
     })
     setPendingHistoryDeletion(null)
@@ -238,6 +251,8 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
         title: historyEditDraft.title,
         content: historyEditDraft.content,
         bulletPoints: historyEditDraft.bulletPoints,
+        moodScore: historyEditDraft.moodScore,
+        conditionScore: historyEditDraft.conditionScore,
         tags: historyEditDraft.tags
           .split(',')
           .map((tag) => tag.trim())
@@ -396,6 +411,49 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       }
                     />
                   </label>
+                  <fieldset className="history-wellbeing-editor history-edit-wide">
+                    <legend>その日の調子（任意）</legend>
+                    <div className="wellbeing-input-grid">
+                      <label>
+                        <span>気分</span>
+                        <select
+                          value={historyEditDraft.moodScore ?? ''}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              moodScore: parseWellbeingScore(event.target.value),
+                            })
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {MOOD_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>体調</span>
+                        <select
+                          value={historyEditDraft.conditionScore ?? ''}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              conditionScore: parseWellbeingScore(event.target.value),
+                            })
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {CONDITION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </fieldset>
                   <label className="history-edit-wide">
                     <span>タグ</span>
                     <input
@@ -463,6 +521,22 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       <h3>{entry.title || '無題'}</h3>
                     </div>
                   </div>
+                  {entry.moodScore !== null || entry.conditionScore !== null ? (
+                    <div className="history-wellbeing-summary" aria-label="その日の調子">
+                      {entry.moodScore !== null ? (
+                        <span>
+                          <strong>気分</strong>
+                          {formatWellbeingScore(entry.moodScore, MOOD_OPTIONS)}
+                        </span>
+                      ) : null}
+                      {entry.conditionScore !== null ? (
+                        <span>
+                          <strong>体調</strong>
+                          {formatWellbeingScore(entry.conditionScore, CONDITION_OPTIONS)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {entry.content ? <p className="history-item-content">{entry.content}</p> : null}
                   {!entry.content ? (
                     <p className="history-item-content">

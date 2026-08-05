@@ -99,12 +99,16 @@ function setupAutoUpdater() {
   })
 }
 
+type WellbeingScore = 1 | 2 | 3 | 4 | 5
+
 type EntryInput = {
   date: string
   title: string
   tags: string[]
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   habits: Array<{
     id: number
     isDone: boolean
@@ -118,6 +122,8 @@ type EntryUpdateInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
 }
 
 type IdRow = {
@@ -130,6 +136,8 @@ type EntryHistoryRow = {
   title: string
   content: string
   bulletPoints: string
+  moodScore: number | null
+  conditionScore: number | null
   tags: string | null
 }
 
@@ -295,6 +303,8 @@ function createEntriesTableSql(tableName = 'entries') {
         title TEXT NOT NULL DEFAULT '無題',
         content TEXT NOT NULL DEFAULT '',
         bullet_points TEXT NOT NULL DEFAULT '',
+        mood_score INTEGER NULL CHECK (mood_score BETWEEN 1 AND 5),
+        condition_score INTEGER NULL CHECK (condition_score BETWEEN 1 AND 5),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -311,6 +321,8 @@ async function normalizeEntriesSchema(
     'title',
     'content',
     'bullet_points',
+    'mood_score',
+    'condition_score',
     'created_at',
     'updated_at',
   ])
@@ -344,6 +356,8 @@ async function normalizeEntriesSchema(
         title,
         content,
         bullet_points,
+        mood_score,
+        condition_score,
         created_at,
         updated_at
       )
@@ -353,6 +367,8 @@ async function normalizeEntriesSchema(
         ${selectColumn('title', "'無題'")},
         ${selectColumn('content', "''")},
         ${selectColumn('bullet_points', "''")},
+        ${selectColumn('mood_score', 'NULL')},
+        ${selectColumn('condition_score', 'NULL')},
         ${selectColumn('created_at', 'CURRENT_TIMESTAMP')},
         ${selectColumn('updated_at', 'CURRENT_TIMESTAMP')}
       FROM entries
@@ -639,6 +655,13 @@ function normalizeTodoPriority(priority: string): TodoPriority {
 function normalizeEntryTitle(title?: string) {
   const trimmedTitle = title?.trim()
   return trimmedTitle || '無題'
+}
+
+// IPCから受け取った評価値を、未設定または1〜5の整数に制限する。
+function normalizeWellbeingScore(score: unknown): WellbeingScore | null {
+  return typeof score === 'number' && Number.isInteger(score) && score >= 1 && score <= 5
+    ? (score as WellbeingScore)
+    : null
 }
 
 // タグ名から tags の id を取得し、存在しない場合は新しく作成する。
@@ -1152,6 +1175,8 @@ function registerIpcHandlers() {
           e.title,
           e.content,
           e.bullet_points AS bulletPoints,
+          e.mood_score AS moodScore,
+          e.condition_score AS conditionScore,
           (
             SELECT GROUP_CONCAT(ordered.name, ',')
             FROM (
@@ -1171,7 +1196,9 @@ function registerIpcHandlers() {
           e.log_date,
           e.title,
           e.content,
-          e.bullet_points
+          e.bullet_points,
+          e.mood_score,
+          e.condition_score
         ORDER BY e.log_date DESC, e.id DESC
         LIMIT 100
       `, parameters)
@@ -1182,6 +1209,8 @@ function registerIpcHandlers() {
           title: normalizeEntryTitle(row.title),
           content: row.content,
           bulletPoints: row.bulletPoints ?? '',
+          moodScore: normalizeWellbeingScore(row.moodScore),
+          conditionScore: normalizeWellbeingScore(row.conditionScore),
           tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
         }))
     } finally {
@@ -1195,13 +1224,25 @@ function registerIpcHandlers() {
     }
 
     const title = normalizeEntryTitle(entry.title)
+    const moodScore = normalizeWellbeingScore(entry.moodScore)
+    const conditionScore = normalizeWellbeingScore(entry.conditionScore)
     const connection = createDatabaseConnection()
 
     try {
       await connection.beginTransaction()
       await connection.execute(
-        'UPDATE entries SET log_date = ?, title = ?, content = ?, bullet_points = ? WHERE id = ?',
-        [entry.date, title, entry.content, entry.bulletPoints, entry.id],
+        `UPDATE entries
+         SET log_date = ?, title = ?, content = ?, bullet_points = ?, mood_score = ?, condition_score = ?
+         WHERE id = ?`,
+        [
+          entry.date,
+          title,
+          entry.content,
+          entry.bulletPoints,
+          moodScore,
+          conditionScore,
+          entry.id,
+        ],
       )
 
       // 編集後のタグ内容に合わせて、既存の紐付けを作り直す。
@@ -1259,6 +1300,8 @@ function registerIpcHandlers() {
     }
 
     const title = normalizeEntryTitle(entry.title)
+    const moodScore = normalizeWellbeingScore(entry.moodScore)
+    const conditionScore = normalizeWellbeingScore(entry.conditionScore)
     const connection = createDatabaseConnection()
 
     try {
@@ -1266,8 +1309,15 @@ function registerIpcHandlers() {
 
       // entries に日記の本体データを保存する。
       const [result] = await connection.execute<SqliteResult>(
-        'INSERT INTO entries (log_date, title, content, bullet_points) VALUES (?, ?, ?, ?)',
-        [entry.date, title, entry.content, entry.bulletPoints],
+        `INSERT INTO entries (
+          log_date,
+          title,
+          content,
+          bullet_points,
+          mood_score,
+          condition_score
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [entry.date, title, entry.content, entry.bulletPoints, moodScore, conditionScore],
       )
       const entryId = result.insertId
 

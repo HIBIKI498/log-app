@@ -12,6 +12,12 @@ import {
 } from '../../shared/SettingsModal'
 import { SettingsShortcuts } from '../../shared/SettingsShortcuts'
 import type { FeaturePageProps, FixedTagSetting, HabitSetting } from '../../shared/types'
+import {
+  CONDITION_OPTIONS,
+  MOOD_OPTIONS,
+  parseWellbeingScore,
+  type WellbeingScore,
+} from '../../shared/wellbeing'
 
 type OpenSettingsModal = {
   target: SettingsModalTarget
@@ -24,6 +30,8 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const [tags, setTags] = useState('')
   const [content, setContent] = useState('')
   const [bulletPoints, setBulletPoints] = useState('')
+  const [moodScore, setMoodScore] = useState<WellbeingScore | null>(null)
+  const [conditionScore, setConditionScore] = useState<WellbeingScore | null>(null)
   const [habitChecks, setHabitChecks] = useState<Record<number, boolean>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -68,6 +76,8 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     setTags('')
     setContent('')
     setBulletPoints('')
+    setMoodScore(null)
+    setConditionScore(null)
     setSelectedFixedTagIds([])
     setHabitChecks(Object.fromEntries(habitSettings.map((habit) => [habit.id, false])))
   }
@@ -135,6 +145,8 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
         tags: mergedTags,
         content,
         bulletPoints,
+        moodScore,
+        conditionScore,
         habits: scheduledHabitSettings.map((habit) => ({
           id: habit.id,
           isDone: habitChecks[habit.id] ?? false,
@@ -184,6 +196,40 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
+
+      <fieldset className="wellbeing-fieldset">
+        <legend>今日の調子（任意）</legend>
+        <div className="wellbeing-input-grid">
+          <label>
+            <span>気分</span>
+            <select
+              value={moodScore ?? ''}
+              onChange={(event) => setMoodScore(parseWellbeingScore(event.target.value))}
+            >
+              <option value="">未設定</option>
+              {MOOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.emoji} {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>体調</span>
+            <select
+              value={conditionScore ?? ''}
+              onChange={(event) => setConditionScore(parseWellbeingScore(event.target.value))}
+            >
+              <option value="">未設定</option>
+              {CONDITION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.emoji} {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
 
       <div className="field">
         <div className="field-heading">
