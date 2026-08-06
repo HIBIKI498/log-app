@@ -46,6 +46,7 @@ type EntrySearchFilters = {
   tag?: string
   startDate?: string
   endDate?: string
+  resultLimit?: number | null
 }
 
 type UpdateEntryInput = {

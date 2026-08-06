@@ -146,6 +146,7 @@ type EntrySearchFilters = {
   tag?: string
   startDate?: string
   endDate?: string
+  resultLimit?: number | null
 }
 
 type HabitAchievementReportRow = {
@@ -1166,6 +1167,7 @@ function registerIpcHandlers() {
         parameters.push(filters.endDate)
       }
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+      const resultLimitClause = filters.resultLimit === null ? '' : 'LIMIT 100'
 
       // 履歴画面用に、検索条件を適用して日記本体とタグを新しい順で取得する。
       const [rows] = await connection.execute<EntryHistoryRow[]>(`
@@ -1200,7 +1202,7 @@ function registerIpcHandlers() {
           e.mood_score,
           e.condition_score
         ORDER BY e.log_date DESC, e.id DESC
-        LIMIT 100
+        ${resultLimitClause}
       `, parameters)
 
       return rows.map((row) => ({

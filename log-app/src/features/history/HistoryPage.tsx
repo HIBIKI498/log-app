@@ -1,8 +1,24 @@
-import { type FocusEvent, type KeyboardEvent, useCallback, useEffect, useState } from 'react'
+import {
+  type FocusEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   createInitialBulletPointLine,
   insertBulletPointLine,
 } from '../../shared/bulletPoints'
+import {
+  CALENDAR_WEEKDAYS,
+  createCalendarDays,
+  formatCalendarMonth,
+  getCalendarMonthRange,
+  getMonthFromDate,
+  moveCalendarMonth,
+} from '../../shared/calendar'
+import { getTodayString } from '../../shared/date'
 import type { FeaturePageProps } from '../../shared/types'
 import {
   CONDITION_OPTIONS,
@@ -22,6 +38,8 @@ type HistoryEntry = {
   conditionScore: WellbeingScore | null
   tags: string[]
 }
+
+type HistoryView = 'list' | 'calendar'
 
 type HistorySearchFilters = {
   keyword: string
@@ -58,7 +76,13 @@ function splitBulletPoints(bulletPoints: string) {
 }
 
 export function HistoryPage({ isActive }: FeaturePageProps) {
+  const today = getTodayString()
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
+  const [historyView, setHistoryView] = useState<HistoryView>('list')
+  const [calendarMonth, setCalendarMonth] = useState(() => getMonthFromDate(getTodayString()))
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(() =>
+    getTodayString(),
+  )
   const [historyMessage, setHistoryMessage] = useState('')
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isMutatingHistory, setIsMutatingHistory] = useState(false)
@@ -73,6 +97,25 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const [pendingHistoryDeletion, setPendingHistoryDeletion] = useState<HistoryEntry | null>(null)
   const [expandedHistoryDetailIds, setExpandedHistoryDetailIds] = useState<number[]>([])
 
+  const calendarDays = useMemo(() => createCalendarDays(calendarMonth), [calendarMonth])
+  const calendarEntriesByDate = useMemo(() => {
+    const entriesByDate = new Map<string, HistoryEntry[]>()
+
+    for (const entry of historyEntries) {
+      const entries = entriesByDate.get(entry.date) ?? []
+      entries.push(entry)
+      entriesByDate.set(entry.date, entries)
+    }
+
+    return entriesByDate
+  }, [historyEntries])
+  const displayedHistoryEntries =
+    historyView === 'calendar'
+      ? selectedCalendarDate
+        ? (calendarEntriesByDate.get(selectedCalendarDate) ?? [])
+        : []
+      : historyEntries
+
   const toggleHistoryDetail = (entryId: number) => {
     setExpandedHistoryDetailIds((currentIds) =>
       currentIds.includes(entryId)
@@ -81,20 +124,90 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     )
   }
 
+  const changeHistoryView = (nextView: HistoryView) => {
+    setHistoryView(nextView)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+
+    if (nextView === 'calendar') {
+      setSelectedCalendarDate((currentDate) =>
+        currentDate && getMonthFromDate(currentDate) === calendarMonth
+          ? currentDate
+          : calendarMonth === getMonthFromDate(today)
+            ? today
+            : null,
+      )
+    }
+  }
+
+  const changeCalendarMonth = (offset: number) => {
+    const nextMonth = moveCalendarMonth(calendarMonth, offset)
+    setCalendarMonth(nextMonth)
+    setSelectedCalendarDate(nextMonth === getMonthFromDate(today) ? today : null)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+  }
+
+  const showCurrentMonth = () => {
+    setCalendarMonth(getMonthFromDate(today))
+    setSelectedCalendarDate(today)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+  }
+
   const loadHistoryEntries = useCallback(async () => {
     setIsLoadingHistory(true)
     setHistoryMessage('')
 
     try {
-      const entries = await window.logApp.listEntries(historySearchFilters)
+      let queryFilters: EntrySearchFilters = historySearchFilters
+
+      if (historyView === 'calendar') {
+        const monthRange = getCalendarMonthRange(calendarMonth)
+        const startDate = historySearchFilters.startDate
+          ? historySearchFilters.startDate > monthRange.startDate
+            ? historySearchFilters.startDate
+            : monthRange.startDate
+          : monthRange.startDate
+        const endDate = historySearchFilters.endDate
+          ? historySearchFilters.endDate < monthRange.endDate
+            ? historySearchFilters.endDate
+            : monthRange.endDate
+          : monthRange.endDate
+
+        if (startDate > endDate) {
+          setHistoryEntries([])
+          setHistoryMessage('表示中の月は、指定した日付範囲に含まれていません。')
+          return
+        }
+
+        queryFilters = {
+          ...historySearchFilters,
+          startDate,
+          endDate,
+          resultLimit: null,
+        }
+      }
+
+      const entries = await window.logApp.listEntries(queryFilters)
       setHistoryEntries(entries)
 
       if (entries.length === 0) {
         const hasSearchCondition = Object.values(historySearchFilters).some(Boolean)
         setHistoryMessage(
-          hasSearchCondition
-            ? '検索条件に一致する日記がありません。'
-            : 'まだ日記がありません。',
+          historyView === 'calendar'
+            ? hasSearchCondition
+              ? 'この月に検索条件と一致する日記はありません。'
+              : 'この月の日記はありません。'
+            : hasSearchCondition
+              ? '検索条件に一致する日記がありません。'
+              : 'まだ日記がありません。',
         )
       }
     } catch (error) {
@@ -103,7 +216,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     } finally {
       setIsLoadingHistory(false)
     }
-  }, [historySearchFilters])
+  }, [calendarMonth, historySearchFilters, historyView])
 
   const loadHistoryTagOptions = useCallback(async () => {
     try {
@@ -296,14 +409,36 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     <section className="history-section" hidden={!isActive}>
       <div className="section-heading">
         <h2>履歴</h2>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={isLoadingHistory || isMutatingHistory}
-          onClick={() => void loadHistoryEntries()}
-        >
-          {isLoadingHistory ? '読み込み中...' : '更新'}
-        </button>
+        <div className="section-heading-actions">
+          <div className="history-view-switch" aria-label="履歴の表示方法">
+            <button
+              aria-pressed={historyView === 'list'}
+              className={historyView === 'list' ? 'active' : ''}
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeHistoryView('list')}
+            >
+              一覧表示
+            </button>
+            <button
+              aria-pressed={historyView === 'calendar'}
+              className={historyView === 'calendar' ? 'active' : ''}
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeHistoryView('calendar')}
+            >
+              カレンダー表示
+            </button>
+          </div>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isLoadingHistory || isMutatingHistory}
+            onClick={() => void loadHistoryEntries()}
+          >
+            {isLoadingHistory ? '読み込み中...' : '更新'}
+          </button>
+        </div>
       </div>
 
       <form
@@ -368,12 +503,117 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       </form>
 
       {historyMessage ? <p className="history-message">{historyMessage}</p> : null}
-      {!historyMessage ? (
+      {historyView === 'list' && !historyMessage ? (
         <p className="history-result-count">表示件数: {historyEntries.length}件</p>
       ) : null}
 
+      {historyView === 'calendar' ? (
+        <section className="history-calendar" aria-labelledby="calendar-month-heading">
+          <div className="calendar-toolbar">
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeCalendarMonth(-1)}
+            >
+              前月
+            </button>
+            <div>
+              <h3 id="calendar-month-heading">{formatCalendarMonth(calendarMonth)}</h3>
+              <span>{historyEntries.length}件の日記</span>
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeCalendarMonth(1)}
+            >
+              翌月
+            </button>
+            <button
+              className="secondary-button calendar-today-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={showCurrentMonth}
+            >
+              今月
+            </button>
+          </div>
+
+          <div className="calendar-weekdays" aria-hidden="true">
+            {CALENDAR_WEEKDAYS.map((weekday) => (
+              <span key={weekday}>{weekday}</span>
+            ))}
+          </div>
+
+          <div
+            className="calendar-grid"
+            role="grid"
+            aria-label={`${formatCalendarMonth(calendarMonth)}の日記カレンダー`}
+          >
+            {calendarDays.map((day, index) => {
+              if (!day) {
+                return <span className="calendar-empty-cell" key={`empty-${index}`} />
+              }
+
+              const dayEntries = calendarEntriesByDate.get(day.date) ?? []
+              const moodEntry = dayEntries.find((entry) => entry.moodScore !== null)
+              const moodEmoji = moodEntry?.moodScore
+                ? MOOD_OPTIONS.find((option) => option.value === moodEntry.moodScore)?.emoji
+                : null
+              const classNames = [
+                'calendar-day',
+                day.date === today ? 'today' : '',
+                day.date === selectedCalendarDate ? 'selected' : '',
+                dayEntries.length > 0 ? 'has-entries' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+
+              return (
+                <button
+                  aria-label={`${day.date}${dayEntries.length > 0 ? `、日記${dayEntries.length}件` : '、日記なし'}`}
+                  className={classNames}
+                  key={day.date}
+                  role="gridcell"
+                  type="button"
+                  onClick={() => {
+                    setSelectedCalendarDate(day.date)
+                    setHistoryEditDraft(null)
+                    setPendingHistoryDeletion(null)
+                    setExpandedHistoryDetailIds([])
+                    setHistoryMessage('')
+                  }}
+                >
+                  <span className="calendar-day-number">{day.day}</span>
+                  {moodEmoji ? <span className="calendar-day-mood">{moodEmoji}</span> : null}
+                  {dayEntries.length > 0 ? (
+                    <span className="calendar-day-count">{dayEntries.length}件</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="calendar-selection-heading">
+            {selectedCalendarDate ? (
+              <>
+                <h3>{selectedCalendarDate}の日記</h3>
+                <span>{displayedHistoryEntries.length}件</span>
+              </>
+            ) : (
+              <p>日付を選択すると、その日の日記を表示します。</p>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {historyView === 'calendar' && selectedCalendarDate && displayedHistoryEntries.length === 0 ? (
+        <p className="calendar-selected-empty">選択した日の日記はありません。</p>
+      ) : null}
+
       <div className="history-list">
-        {historyEntries.map((entry) => {
+        {displayedHistoryEntries.map((entry) => {
           const isEditing = historyEditDraft?.id === entry.id
           const isPendingDeletion = pendingHistoryDeletion?.id === entry.id
           const isDetailOpen = expandedHistoryDetailIds.includes(entry.id)
