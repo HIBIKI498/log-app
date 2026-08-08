@@ -16,6 +16,9 @@ type SaveEntryInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
   habits: Array<{
@@ -36,6 +39,9 @@ type EntryHistoryItem = {
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
   tags: string[]
@@ -56,6 +62,9 @@ type UpdateEntryInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
 }

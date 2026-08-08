@@ -30,6 +30,9 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const [tags, setTags] = useState('')
   const [content, setContent] = useState('')
   const [bulletPoints, setBulletPoints] = useState('')
+  const [breakfast, setBreakfast] = useState('')
+  const [lunch, setLunch] = useState('')
+  const [dinner, setDinner] = useState('')
   const [moodScore, setMoodScore] = useState<WellbeingScore | null>(null)
   const [conditionScore, setConditionScore] = useState<WellbeingScore | null>(null)
   const [habitChecks, setHabitChecks] = useState<Record<number, boolean>>({})
@@ -76,6 +79,9 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     setTags('')
     setContent('')
     setBulletPoints('')
+    setBreakfast('')
+    setLunch('')
+    setDinner('')
     setMoodScore(null)
     setConditionScore(null)
     setSelectedFixedTagIds([])
@@ -145,6 +151,9 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
         tags: mergedTags,
         content,
         bulletPoints,
+        breakfast,
+        lunch,
+        dinner,
         moodScore,
         conditionScore,
         habits: scheduledHabitSettings.map((habit) => ({
@@ -227,6 +236,39 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="meal-fieldset">
+        <legend>今日の食事（任意）</legend>
+        <div className="meal-input-grid">
+          <label>
+            <span>朝食</span>
+            <textarea
+              rows={2}
+              placeholder="例: トースト、ヨーグルト"
+              value={breakfast}
+              onChange={(event) => setBreakfast(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>昼食</span>
+            <textarea
+              rows={2}
+              placeholder="例: おにぎり、みそ汁"
+              value={lunch}
+              onChange={(event) => setLunch(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>夕食</span>
+            <textarea
+              rows={2}
+              placeholder="例: カレー、サラダ"
+              value={dinner}
+              onChange={(event) => setDinner(event.target.value)}
+            />
           </label>
         </div>
       </fieldset>

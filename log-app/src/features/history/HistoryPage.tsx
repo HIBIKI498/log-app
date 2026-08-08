@@ -34,6 +34,9 @@ type HistoryEntry = {
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
   tags: string[]
@@ -54,6 +57,9 @@ type HistoryEditDraft = {
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
   tags: string
@@ -286,6 +292,9 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       title: entry.title,
       content: entry.content,
       bulletPoints: entry.bulletPoints,
+      breakfast: entry.breakfast,
+      lunch: entry.lunch,
+      dinner: entry.dinner,
       moodScore: entry.moodScore,
       conditionScore: entry.conditionScore,
       tags: entry.tags.join(', '),
@@ -364,6 +373,9 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
         title: historyEditDraft.title,
         content: historyEditDraft.content,
         bulletPoints: historyEditDraft.bulletPoints,
+        breakfast: historyEditDraft.breakfast,
+        lunch: historyEditDraft.lunch,
+        dinner: historyEditDraft.dinner,
         moodScore: historyEditDraft.moodScore,
         conditionScore: historyEditDraft.conditionScore,
         tags: historyEditDraft.tags
@@ -452,7 +464,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           <span>キーワード</span>
           <input
             type="search"
-            placeholder="日記のキーワードを検索"
+            placeholder="日記や食事のキーワードを検索"
             value={historyKeyword}
             onChange={(event) => setHistoryKeyword(event.target.value)}
           />
@@ -618,6 +630,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           const isPendingDeletion = pendingHistoryDeletion?.id === entry.id
           const isDetailOpen = expandedHistoryDetailIds.includes(entry.id)
           const bulletPointItems = splitBulletPoints(entry.bulletPoints)
+          const hasMealRecord = Boolean(entry.breakfast || entry.lunch || entry.dinner)
           const detailPanelId = `history-detail-${entry.id}`
 
           return (
@@ -691,6 +704,50 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                             </option>
                           ))}
                         </select>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <fieldset className="history-meal-editor history-edit-wide">
+                    <legend>その日の食事（任意）</legend>
+                    <div className="meal-input-grid">
+                      <label>
+                        <span>朝食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.breakfast}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              breakfast: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>昼食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.lunch}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              lunch: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>夕食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.dinner}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              dinner: event.target.value,
+                            })
+                          }
+                        />
                       </label>
                     </div>
                   </fieldset>
@@ -795,6 +852,31 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       ) : (
                         <p className="history-detail-empty">箇条書きメモはありません。</p>
                       )}
+                      {hasMealRecord ? (
+                        <div className="history-meal-detail">
+                          <strong className="history-detail-heading">食事</strong>
+                          <dl>
+                            {entry.breakfast ? (
+                              <div>
+                                <dt>朝食</dt>
+                                <dd>{entry.breakfast}</dd>
+                              </div>
+                            ) : null}
+                            {entry.lunch ? (
+                              <div>
+                                <dt>昼食</dt>
+                                <dd>{entry.lunch}</dd>
+                              </div>
+                            ) : null}
+                            {entry.dinner ? (
+                              <div>
+                                <dt>夕食</dt>
+                                <dd>{entry.dinner}</dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                   {entry.tags.length > 0 ? (

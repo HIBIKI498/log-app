@@ -227,6 +227,49 @@ button {
   cursor: pointer;
 }
 
+.meal-fieldset,
+.history-meal-editor {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #e4d9c7;
+  border-radius: 6px;
+  padding: 12px;
+  background: #fffaf3;
+}
+
+.meal-fieldset legend,
+.history-meal-editor legend {
+  padding: 0 5px;
+  color: #111111;
+  font-weight: 700;
+}
+
+.meal-input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.meal-input-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #111111;
+  font-weight: 700;
+}
+
+.meal-input-grid textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  padding: 9px 10px;
+  color: #111111;
+  background: #ffffff;
+  font-weight: 400;
+  resize: vertical;
+}
+
 .fixed-tag-selector {
   display: flex;
   flex-wrap: wrap;
@@ -1194,6 +1237,38 @@ button {
   color: #666666;
 }
 
+.history-meal-detail {
+  display: grid;
+  gap: 7px;
+  margin-top: 5px;
+  border-top: 1px solid #d8e0e8;
+  padding-top: 10px;
+}
+
+.history-meal-detail dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.history-meal-detail dl > div {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.history-meal-detail dt {
+  color: #6b4a1e;
+  font-weight: 700;
+}
+
+.history-meal-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #222222;
+  white-space: pre-wrap;
+}
+
 .history-bullet-list {
   display: grid;
   gap: 4px;
@@ -1820,6 +1895,7 @@ button {
   .history-edit-form,
   .history-search-form,
   .wellbeing-input-grid,
+  .meal-input-grid,
   .todo-add-modal-form {
     grid-template-columns: 1fr;
   }

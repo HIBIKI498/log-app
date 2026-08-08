@@ -107,6 +107,9 @@ type EntryInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
   habits: Array<{
@@ -122,6 +125,9 @@ type EntryUpdateInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: WellbeingScore | null
   conditionScore: WellbeingScore | null
 }
@@ -136,6 +142,9 @@ type EntryHistoryRow = {
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
   moodScore: number | null
   conditionScore: number | null
   tags: string | null
@@ -304,6 +313,9 @@ function createEntriesTableSql(tableName = 'entries') {
         title TEXT NOT NULL DEFAULT '無題',
         content TEXT NOT NULL DEFAULT '',
         bullet_points TEXT NOT NULL DEFAULT '',
+        breakfast TEXT NOT NULL DEFAULT '',
+        lunch TEXT NOT NULL DEFAULT '',
+        dinner TEXT NOT NULL DEFAULT '',
         mood_score INTEGER NULL CHECK (mood_score BETWEEN 1 AND 5),
         condition_score INTEGER NULL CHECK (condition_score BETWEEN 1 AND 5),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -322,6 +334,9 @@ async function normalizeEntriesSchema(
     'title',
     'content',
     'bullet_points',
+    'breakfast',
+    'lunch',
+    'dinner',
     'mood_score',
     'condition_score',
     'created_at',
@@ -357,6 +372,9 @@ async function normalizeEntriesSchema(
         title,
         content,
         bullet_points,
+        breakfast,
+        lunch,
+        dinner,
         mood_score,
         condition_score,
         created_at,
@@ -368,6 +386,9 @@ async function normalizeEntriesSchema(
         ${selectColumn('title', "'無題'")},
         ${selectColumn('content', "''")},
         ${selectColumn('bullet_points', "''")},
+        ${selectColumn('breakfast', "''")},
+        ${selectColumn('lunch', "''")},
+        ${selectColumn('dinner', "''")},
         ${selectColumn('mood_score', 'NULL')},
         ${selectColumn('condition_score', 'NULL')},
         ${selectColumn('created_at', 'CURRENT_TIMESTAMP')},
@@ -1139,11 +1160,24 @@ function registerIpcHandlers() {
       const tag = filters.tag?.trim()
 
       if (keyword) {
-        // タイトル、本文、箇条書きメモのどれに含まれる語句でも検索できるようにする。
-        conditions.push('(e.title LIKE ? OR e.content LIKE ? OR e.bullet_points LIKE ?)')
-        parameters.push(`%${keyword}%`)
-        parameters.push(`%${keyword}%`)
-        parameters.push(`%${keyword}%`)
+        // タイトル、本文、メモ、食事のどれに含まれる語句でも検索できるようにする。
+        conditions.push(`(
+          e.title LIKE ?
+          OR e.content LIKE ?
+          OR e.bullet_points LIKE ?
+          OR e.breakfast LIKE ?
+          OR e.lunch LIKE ?
+          OR e.dinner LIKE ?
+        )`)
+        const keywordPattern = `%${keyword}%`
+        parameters.push(
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+        )
       }
       if (tag) {
         // 検索用の別名を使い、結果側のGROUP_CONCATには全タグを残す。
@@ -1177,6 +1211,9 @@ function registerIpcHandlers() {
           e.title,
           e.content,
           e.bullet_points AS bulletPoints,
+          e.breakfast,
+          e.lunch,
+          e.dinner,
           e.mood_score AS moodScore,
           e.condition_score AS conditionScore,
           (
@@ -1199,6 +1236,9 @@ function registerIpcHandlers() {
           e.title,
           e.content,
           e.bullet_points,
+          e.breakfast,
+          e.lunch,
+          e.dinner,
           e.mood_score,
           e.condition_score
         ORDER BY e.log_date DESC, e.id DESC
@@ -1211,6 +1251,9 @@ function registerIpcHandlers() {
           title: normalizeEntryTitle(row.title),
           content: row.content,
           bulletPoints: row.bulletPoints ?? '',
+          breakfast: row.breakfast ?? '',
+          lunch: row.lunch ?? '',
+          dinner: row.dinner ?? '',
           moodScore: normalizeWellbeingScore(row.moodScore),
           conditionScore: normalizeWellbeingScore(row.conditionScore),
           tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
@@ -1234,13 +1277,16 @@ function registerIpcHandlers() {
       await connection.beginTransaction()
       await connection.execute(
         `UPDATE entries
-         SET log_date = ?, title = ?, content = ?, bullet_points = ?, mood_score = ?, condition_score = ?
+         SET log_date = ?, title = ?, content = ?, bullet_points = ?, breakfast = ?, lunch = ?, dinner = ?, mood_score = ?, condition_score = ?
          WHERE id = ?`,
         [
           entry.date,
           title,
           entry.content,
           entry.bulletPoints,
+          entry.breakfast,
+          entry.lunch,
+          entry.dinner,
           moodScore,
           conditionScore,
           entry.id,
@@ -1316,10 +1362,23 @@ function registerIpcHandlers() {
           title,
           content,
           bullet_points,
+          breakfast,
+          lunch,
+          dinner,
           mood_score,
           condition_score
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [entry.date, title, entry.content, entry.bulletPoints, moodScore, conditionScore],
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entry.date,
+          title,
+          entry.content,
+          entry.bulletPoints,
+          entry.breakfast,
+          entry.lunch,
+          entry.dinner,
+          moodScore,
+          conditionScore,
+        ],
       )
       const entryId = result.insertId
 
