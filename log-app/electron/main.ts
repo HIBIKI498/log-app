@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
-import { DatabaseSync } from 'node:sqlite'
+import { backup, DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
 import { autoUpdater } from 'electron-updater'
 import fs from 'node:fs'
@@ -99,16 +99,19 @@ function setupAutoUpdater() {
   })
 }
 
-// React 側から保存依頼を受け取る 1 日分の入力データ。
-type EntryKind = 'diary' | 'record'
+type WellbeingScore = 1 | 2 | 3 | 4 | 5
 
 type EntryInput = {
-  kind: EntryKind
   date: string
   title: string
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   habits: Array<{
     id: number
     isDone: boolean
@@ -122,6 +125,11 @@ type EntryUpdateInput = {
   tags: string[]
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
 }
 
 type IdRow = {
@@ -130,20 +138,24 @@ type IdRow = {
 
 type EntryHistoryRow = {
   id: number
-  kind: EntryKind
   date: string
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: number | null
+  conditionScore: number | null
   tags: string | null
 }
 
 type EntrySearchFilters = {
-  kind?: EntryKind
   keyword?: string
   tag?: string
   startDate?: string
   endDate?: string
+  resultLimit?: number | null
 }
 
 type HabitAchievementReportRow = {
@@ -157,8 +169,6 @@ type SettingsTagRow = {
   id: number
   name: string
   isFixed: number
-  useInDiary: number
-  useInRecord: number
 }
 
 type TagNameRow = {
@@ -232,6 +242,10 @@ class SqliteConnection {
     this.database.exec('ROLLBACK')
   }
 
+  async backupTo(destinationPath: string) {
+    await backup(this.database, destinationPath)
+  }
+
   async end() {
     this.database.close()
   }
@@ -245,6 +259,15 @@ function createDatabaseConnection() {
   const databasePath = getDatabasePath()
   fs.mkdirSync(path.dirname(databasePath), { recursive: true })
   return new SqliteConnection(databasePath)
+}
+
+function createRecordRemovalBackupPath(databasePath: string) {
+  const parsedPath = path.parse(databasePath)
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return path.join(
+    parsedPath.dir,
+    `${parsedPath.name}.before-record-removal-${timestamp}${parsedPath.ext || '.db'}`,
+  )
 }
 
 async function testDatabaseConnection() {
@@ -287,10 +310,14 @@ function createEntriesTableSql(tableName = 'entries') {
       CREATE TABLE IF NOT EXISTS ${tableName} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         log_date TEXT NOT NULL,
-        entry_type TEXT NOT NULL DEFAULT 'diary',
         title TEXT NOT NULL DEFAULT '無題',
         content TEXT NOT NULL DEFAULT '',
         bullet_points TEXT NOT NULL DEFAULT '',
+        breakfast TEXT NOT NULL DEFAULT '',
+        lunch TEXT NOT NULL DEFAULT '',
+        dinner TEXT NOT NULL DEFAULT '',
+        mood_score INTEGER NULL CHECK (mood_score BETWEEN 1 AND 5),
+        condition_score INTEGER NULL CHECK (condition_score BETWEEN 1 AND 5),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -304,10 +331,14 @@ async function normalizeEntriesSchema(
   const expectedColumnNames = new Set([
     'id',
     'log_date',
-    'entry_type',
     'title',
     'content',
     'bullet_points',
+    'breakfast',
+    'lunch',
+    'dinner',
+    'mood_score',
+    'condition_score',
     'created_at',
     'updated_at',
   ])
@@ -325,6 +356,9 @@ async function normalizeEntriesSchema(
 
   const selectColumn = (columnName: string, fallback: string) =>
     currentColumnNames.has(columnName) ? columnName : fallback
+  const sourceFilter = currentColumnNames.has('entry_type')
+    ? "WHERE entry_type <> 'record'"
+    : ''
 
   await connection.execute('PRAGMA foreign_keys = OFF')
 
@@ -335,23 +369,32 @@ async function normalizeEntriesSchema(
       INSERT INTO entries_next (
         id,
         log_date,
-        entry_type,
         title,
         content,
         bullet_points,
+        breakfast,
+        lunch,
+        dinner,
+        mood_score,
+        condition_score,
         created_at,
         updated_at
       )
       SELECT
         ${selectColumn('id', 'NULL')},
         ${selectColumn('log_date', "date('now')")},
-        ${selectColumn('entry_type', "'diary'")},
         ${selectColumn('title', "'無題'")},
         ${selectColumn('content', "''")},
         ${selectColumn('bullet_points', "''")},
+        ${selectColumn('breakfast', "''")},
+        ${selectColumn('lunch', "''")},
+        ${selectColumn('dinner', "''")},
+        ${selectColumn('mood_score', 'NULL')},
+        ${selectColumn('condition_score', 'NULL')},
         ${selectColumn('created_at', 'CURRENT_TIMESTAMP')},
         ${selectColumn('updated_at', 'CURRENT_TIMESTAMP')}
       FROM entries
+      ${sourceFilter}
     `)
     await connection.execute('DROP TABLE entries')
     await connection.execute('ALTER TABLE entries_next RENAME TO entries')
@@ -361,6 +404,120 @@ async function normalizeEntriesSchema(
     throw error
   } finally {
     await connection.execute('PRAGMA foreign_keys = ON')
+  }
+}
+
+function createTagsTableSql(tableName = 'tags') {
+  return `
+      CREATE TABLE IF NOT EXISTS ${tableName} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        is_fixed INTEGER NOT NULL DEFAULT 0
+      )
+    `
+}
+
+async function normalizeTagsSchema(
+  connection: SqliteConnection,
+  tagColumns: Array<{ name: string }>,
+) {
+  const expectedColumnNames = new Set(['id', 'name', 'is_fixed'])
+  const currentColumnNames = new Set(tagColumns.map((column) => column.name))
+  const hasUnexpectedColumns = tagColumns.some(
+    (column) => !expectedColumnNames.has(column.name),
+  )
+  const hasMissingColumns = [...expectedColumnNames].some(
+    (columnName) => !currentColumnNames.has(columnName),
+  )
+
+  if (!hasUnexpectedColumns && !hasMissingColumns) {
+    return
+  }
+
+  const selectColumn = (columnName: string, fallback: string) =>
+    currentColumnNames.has(columnName) ? columnName : fallback
+
+  await connection.execute('PRAGMA foreign_keys = OFF')
+
+  try {
+    await connection.beginTransaction()
+    await connection.execute(createTagsTableSql('tags_next'))
+    await connection.execute(`
+      INSERT INTO tags_next (id, name, is_fixed)
+      SELECT
+        ${selectColumn('id', 'NULL')},
+        ${selectColumn('name', "''")},
+        ${selectColumn('is_fixed', '0')}
+      FROM tags
+    `)
+    await connection.execute('DROP TABLE tags')
+    await connection.execute('ALTER TABLE tags_next RENAME TO tags')
+    await connection.commit()
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    await connection.execute('PRAGMA foreign_keys = ON')
+  }
+}
+
+async function migrateAwayRecordFeature(
+  connection: SqliteConnection,
+  databasePath: string,
+  entryColumns: Array<{ name: string }>,
+  tagColumns: Array<{ name: string }>,
+) {
+  const hasEntryType = entryColumns.some((column) => column.name === 'entry_type')
+  const hasDiaryTagTarget = tagColumns.some((column) => column.name === 'use_in_diary')
+  const hasRecordTagTarget = tagColumns.some((column) => column.name === 'use_in_record')
+
+  if (!hasEntryType && !hasDiaryTagTarget && !hasRecordTagTarget) {
+    return
+  }
+
+  const backupPath = createRecordRemovalBackupPath(databasePath)
+  await connection.backupTo(backupPath)
+  console.log(`SQLite backup created before record removal: ${backupPath}`)
+
+  try {
+    await connection.beginTransaction()
+
+    if (hasEntryType) {
+      await connection.execute(`
+        DELETE FROM entry_tags
+        WHERE entry_id IN (
+          SELECT id
+          FROM entries
+          WHERE entry_type = 'record'
+        )
+      `)
+      await connection.execute("DELETE FROM entries WHERE entry_type = 'record'")
+    }
+
+    if (hasDiaryTagTarget) {
+      // 記録専用タグは、日記履歴からも参照されていなければ削除する。
+      await connection.execute(`
+        DELETE FROM tags
+        WHERE use_in_diary = 0
+          AND NOT EXISTS (
+            SELECT 1
+            FROM entry_tags
+            WHERE entry_tags.tag_id = tags.id
+          )
+      `)
+      // 日記履歴で使われている記録専用タグは、履歴を守るため通常タグとして残す。
+      await connection.execute(`
+        UPDATE tags
+        SET is_fixed = 0
+        WHERE is_fixed = 1
+          AND use_in_diary = 0
+      `)
+    }
+
+    await connection.commit()
+  } catch (error) {
+    await connection.rollback()
+    throw error
   }
 }
 
@@ -401,74 +558,12 @@ async function dropTablesOutsideCurrentSchema(connection: SqliteConnection) {
 }
 
 async function ensureDatabaseSchema() {
+  const databasePath = getDatabasePath()
   const connection = createDatabaseConnection()
 
   try {
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        log_date TEXT NOT NULL,
-        entry_type TEXT NOT NULL DEFAULT 'diary',
-        title TEXT NOT NULL DEFAULT '無題',
-        content TEXT NOT NULL DEFAULT '',
-        bullet_points TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    let [entryColumns] = await connection.execute<Array<{ name: string }>>(
-      "SELECT name FROM pragma_table_info('entries')",
-    )
-
-    // 既存DBからの移行用。過去のentriesは日記として扱う。
-    if (!entryColumns.some((column) => column.name === 'entry_type')) {
-      await connection.execute(
-        "ALTER TABLE entries ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'diary'",
-      )
-    }
-    // 既存DBからの移行用。タイトル未入力の記録は「無題」として扱う。
-    if (!entryColumns.some((column) => column.name === 'title')) {
-      await connection.execute("ALTER TABLE entries ADD COLUMN title TEXT NOT NULL DEFAULT '無題'")
-    }
-    // 既存DBからの移行用。本文とは別に検索対象の箇条書きメモを持たせる。
-    if (!entryColumns.some((column) => column.name === 'bullet_points')) {
-      await connection.execute(
-        "ALTER TABLE entries ADD COLUMN bullet_points TEXT NOT NULL DEFAULT ''",
-      )
-    }
-    const [refreshedEntryColumns] = await connection.execute<Array<{ name: string }>>(
-      "SELECT name FROM pragma_table_info('entries')",
-    )
-    entryColumns = refreshedEntryColumns
-    await normalizeEntriesSchema(connection, entryColumns)
-
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        is_fixed INTEGER NOT NULL DEFAULT 0,
-        use_in_diary INTEGER NOT NULL DEFAULT 1,
-        use_in_record INTEGER NOT NULL DEFAULT 1
-      )
-    `)
-
-    const [tagColumns] = await connection.execute<Array<{ name: string }>>(
-      "SELECT name FROM pragma_table_info('tags')",
-    )
-
-    // 既存タグは日記・記録の両方で利用できる状態を維持する。
-    if (!tagColumns.some((column) => column.name === 'use_in_diary')) {
-      await connection.execute(
-        'ALTER TABLE tags ADD COLUMN use_in_diary INTEGER NOT NULL DEFAULT 1',
-      )
-    }
-    if (!tagColumns.some((column) => column.name === 'use_in_record')) {
-      await connection.execute(
-        'ALTER TABLE tags ADD COLUMN use_in_record INTEGER NOT NULL DEFAULT 1',
-      )
-    }
-
+    await connection.execute(createEntriesTableSql())
+    await connection.execute(createTagsTableSql())
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS entry_tags (
         entry_id INTEGER NOT NULL,
@@ -478,6 +573,17 @@ async function ensureDatabaseSchema() {
         FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
       )
     `)
+
+    const [entryColumns] = await connection.execute<Array<{ name: string }>>(
+      "SELECT name FROM pragma_table_info('entries')",
+    )
+    const [tagColumns] = await connection.execute<Array<{ name: string }>>(
+      "SELECT name FROM pragma_table_info('tags')",
+    )
+
+    await migrateAwayRecordFeature(connection, databasePath, entryColumns, tagColumns)
+    await normalizeEntriesSchema(connection, entryColumns)
+    await normalizeTagsSchema(connection, tagColumns)
 
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS habits (
@@ -567,21 +673,17 @@ function normalizeTodoPriority(priority: string): TodoPriority {
   return priority === 'low' || priority === 'high' ? priority : 'normal'
 }
 
-// 保存・検索対象を日記または記録の2種類に制限する。
-function normalizeEntryKind(kind?: string): EntryKind {
-  return kind === 'record' ? 'record' : 'diary'
-}
-
-function normalizeTagEntryKinds(entryKinds: string[] = []): EntryKind[] {
-  return [...new Set(entryKinds.filter((kind): kind is EntryKind => (
-    kind === 'diary' || kind === 'record'
-  )))]
-}
-
 // タイトルが空の時は、履歴で見失わないよう「無題」として保存する。
 function normalizeEntryTitle(title?: string) {
   const trimmedTitle = title?.trim()
   return trimmedTitle || '無題'
+}
+
+// IPCから受け取った評価値を、未設定または1〜5の整数に制限する。
+function normalizeWellbeingScore(score: unknown): WellbeingScore | null {
+  return typeof score === 'number' && Number.isInteger(score) && score >= 1 && score <= 5
+    ? (score as WellbeingScore)
+    : null
 }
 
 // タグ名から tags の id を取得し、存在しない場合は新しく作成する。
@@ -672,7 +774,7 @@ function registerTrustedIpcHandler<Args extends unknown[], Result>(
 
 // Renderer から呼び出す保存処理を IPC として登録する。
 function registerIpcHandlers() {
-  registerTrustedIpcHandler('entries:list-tags', async (_event, kind?: string) => {
+  registerTrustedIpcHandler('entries:list-tags', async () => {
     const connection = createDatabaseConnection()
 
     try {
@@ -681,11 +783,8 @@ function registerIpcHandlers() {
           SELECT DISTINCT t.name
           FROM tags t
           INNER JOIN entry_tags et ON t.id = et.tag_id
-          INNER JOIN entries e ON et.entry_id = e.id
-          WHERE e.entry_type = ?
           ORDER BY t.name COLLATE NOCASE
         `,
-        [normalizeEntryKind(kind)],
       )
 
       return rows.map((row) => row.name)
@@ -852,9 +951,7 @@ function registerIpcHandlers() {
           SELECT
             id,
             name,
-            is_fixed AS isFixed,
-            use_in_diary AS useInDiary,
-            use_in_record AS useInRecord
+            is_fixed AS isFixed
           FROM tags
           WHERE is_fixed = ?
           ORDER BY name
@@ -887,10 +984,6 @@ function registerIpcHandlers() {
           id: tag.id,
           name: tag.name,
           isFixed: Boolean(tag.isFixed),
-          entryKinds: [
-            ...(tag.useInDiary ? ['diary' as const] : []),
-            ...(tag.useInRecord ? ['record' as const] : []),
-          ],
         })),
         habits: habits.map((habit) => ({
           id: habit.id,
@@ -908,20 +1001,12 @@ function registerIpcHandlers() {
   registerTrustedIpcHandler('settings:add-fixed-tag', async (
     _event,
     name: string,
-    entryKinds: string[],
   ) => {
     const trimmedName = name.trim()
-    const normalizedEntryKinds = normalizeTagEntryKinds(entryKinds)
 
     if (!trimmedName) {
       throw new Error('タグ名を入力してください。')
     }
-    if (normalizedEntryKinds.length === 0) {
-      throw new Error('タグを使用する画面を選択してください。')
-    }
-
-    const useInDiary = normalizedEntryKinds.includes('diary') ? 1 : 0
-    const useInRecord = normalizedEntryKinds.includes('record') ? 1 : 0
 
     const connection = createDatabaseConnection()
 
@@ -933,18 +1018,15 @@ function registerIpcHandlers() {
 
       if (rows[0]) {
         await connection.execute(
-          'UPDATE tags SET is_fixed = ?, use_in_diary = ?, use_in_record = ? WHERE id = ?',
-          [1, useInDiary, useInRecord, rows[0].id],
+          'UPDATE tags SET is_fixed = ? WHERE id = ?',
+          [1, rows[0].id],
         )
         return { id: rows[0].id }
       }
 
       const [result] = await connection.execute<SqliteResult>(
-        `
-          INSERT INTO tags (name, is_fixed, use_in_diary, use_in_record)
-          VALUES (?, ?, ?, ?)
-        `,
-        [trimmedName, 1, useInDiary, useInRecord],
+        'INSERT INTO tags (name, is_fixed) VALUES (?, ?)',
+        [trimmedName, 1],
       )
 
       return { id: result.insertId }
@@ -957,34 +1039,19 @@ function registerIpcHandlers() {
     _event,
     id: number,
     name: string,
-    entryKinds: string[],
   ) => {
     const trimmedName = name.trim()
-    const normalizedEntryKinds = normalizeTagEntryKinds(entryKinds)
 
     if (!trimmedName) {
       throw new Error('タグ名を入力してください。')
-    }
-    if (normalizedEntryKinds.length === 0) {
-      throw new Error('タグを使用する画面を選択してください。')
     }
 
     const connection = createDatabaseConnection()
 
     try {
       await connection.execute(
-        `
-          UPDATE tags
-          SET name = ?, is_fixed = ?, use_in_diary = ?, use_in_record = ?
-          WHERE id = ?
-        `,
-        [
-          trimmedName,
-          1,
-          normalizedEntryKinds.includes('diary') ? 1 : 0,
-          normalizedEntryKinds.includes('record') ? 1 : 0,
-          id,
-        ],
+        'UPDATE tags SET name = ?, is_fixed = ? WHERE id = ?',
+        [trimmedName, 1, id],
       )
 
       return { id }
@@ -1089,19 +1156,28 @@ function registerIpcHandlers() {
     try {
       const conditions: string[] = []
       const parameters: Array<string | number> = []
-      const kind = normalizeEntryKind(filters.kind)
       const keyword = filters.keyword?.trim()
       const tag = filters.tag?.trim()
 
-      conditions.push('e.entry_type = ?')
-      parameters.push(kind)
-
       if (keyword) {
-        // タイトル、本文、箇条書きメモのどれに含まれる語句でも検索できるようにする。
-        conditions.push('(e.title LIKE ? OR e.content LIKE ? OR e.bullet_points LIKE ?)')
-        parameters.push(`%${keyword}%`)
-        parameters.push(`%${keyword}%`)
-        parameters.push(`%${keyword}%`)
+        // タイトル、本文、メモ、食事のどれに含まれる語句でも検索できるようにする。
+        conditions.push(`(
+          e.title LIKE ?
+          OR e.content LIKE ?
+          OR e.bullet_points LIKE ?
+          OR e.breakfast LIKE ?
+          OR e.lunch LIKE ?
+          OR e.dinner LIKE ?
+        )`)
+        const keywordPattern = `%${keyword}%`
+        parameters.push(
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+          keywordPattern,
+        )
       }
       if (tag) {
         // 検索用の別名を使い、結果側のGROUP_CONCATには全タグを残す。
@@ -1125,16 +1201,21 @@ function registerIpcHandlers() {
         parameters.push(filters.endDate)
       }
       const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+      const resultLimitClause = filters.resultLimit === null ? '' : 'LIMIT 100'
 
       // 履歴画面用に、検索条件を適用して日記本体とタグを新しい順で取得する。
       const [rows] = await connection.execute<EntryHistoryRow[]>(`
         SELECT
           e.id,
-          e.entry_type AS kind,
           e.log_date AS date,
           e.title,
           e.content,
           e.bullet_points AS bulletPoints,
+          e.breakfast,
+          e.lunch,
+          e.dinner,
+          e.mood_score AS moodScore,
+          e.condition_score AS conditionScore,
           (
             SELECT GROUP_CONCAT(ordered.name, ',')
             FROM (
@@ -1151,22 +1232,30 @@ function registerIpcHandlers() {
         ${whereClause}
         GROUP BY
           e.id,
-          e.entry_type,
           e.log_date,
           e.title,
           e.content,
-          e.bullet_points
+          e.bullet_points,
+          e.breakfast,
+          e.lunch,
+          e.dinner,
+          e.mood_score,
+          e.condition_score
         ORDER BY e.log_date DESC, e.id DESC
-        LIMIT 100
+        ${resultLimitClause}
       `, parameters)
 
       return rows.map((row) => ({
           id: row.id,
-          kind: normalizeEntryKind(row.kind),
           date: row.date,
           title: normalizeEntryTitle(row.title),
           content: row.content,
           bulletPoints: row.bulletPoints ?? '',
+          breakfast: row.breakfast ?? '',
+          lunch: row.lunch ?? '',
+          dinner: row.dinner ?? '',
+          moodScore: normalizeWellbeingScore(row.moodScore),
+          conditionScore: normalizeWellbeingScore(row.conditionScore),
           tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
         }))
     } finally {
@@ -1176,17 +1265,32 @@ function registerIpcHandlers() {
 
   registerTrustedIpcHandler('entries:update', async (_event, entry: EntryUpdateInput) => {
     if (!entry.id || !entry.date) {
-      throw new Error('更新する記録と日付を確認してください。')
+      throw new Error('更新する日記と日付を確認してください。')
     }
 
     const title = normalizeEntryTitle(entry.title)
+    const moodScore = normalizeWellbeingScore(entry.moodScore)
+    const conditionScore = normalizeWellbeingScore(entry.conditionScore)
     const connection = createDatabaseConnection()
 
     try {
       await connection.beginTransaction()
       await connection.execute(
-        'UPDATE entries SET log_date = ?, title = ?, content = ?, bullet_points = ? WHERE id = ?',
-        [entry.date, title, entry.content, entry.bulletPoints, entry.id],
+        `UPDATE entries
+         SET log_date = ?, title = ?, content = ?, bullet_points = ?, breakfast = ?, lunch = ?, dinner = ?, mood_score = ?, condition_score = ?
+         WHERE id = ?`,
+        [
+          entry.date,
+          title,
+          entry.content,
+          entry.bulletPoints,
+          entry.breakfast,
+          entry.lunch,
+          entry.dinner,
+          moodScore,
+          conditionScore,
+          entry.id,
+        ],
       )
 
       // 編集後のタグ内容に合わせて、既存の紐付けを作り直す。
@@ -1217,7 +1321,7 @@ function registerIpcHandlers() {
 
   registerTrustedIpcHandler('entries:delete', async (_event, id: number) => {
     if (!id) {
-      throw new Error('削除する記録を確認してください。')
+      throw new Error('削除する日記を確認してください。')
     }
 
     const connection = createDatabaseConnection()
@@ -1228,7 +1332,7 @@ function registerIpcHandlers() {
       await connection.execute('DELETE FROM entries WHERE id = ?', [id])
       await connection.commit()
 
-      // habit_logs は日付単位の記録なので、日記1件の削除では保持する。
+      // habit_logs は日付単位の実行履歴なので、日記1件の削除では保持する。
       return { id }
     } catch (error) {
       await connection.rollback()
@@ -1243,21 +1347,42 @@ function registerIpcHandlers() {
       throw new Error('日付を入力してください。')
     }
 
-    const kind = normalizeEntryKind(entry.kind)
     const title = normalizeEntryTitle(entry.title)
+    const moodScore = normalizeWellbeingScore(entry.moodScore)
+    const conditionScore = normalizeWellbeingScore(entry.conditionScore)
     const connection = createDatabaseConnection()
 
     try {
       await connection.beginTransaction()
 
-      // entries に日記または記録の本体データを保存する。
+      // entries に日記の本体データを保存する。
       const [result] = await connection.execute<SqliteResult>(
-        'INSERT INTO entries (log_date, entry_type, title, content, bullet_points) VALUES (?, ?, ?, ?, ?)',
-        [entry.date, kind, title, entry.content, entry.bulletPoints],
+        `INSERT INTO entries (
+          log_date,
+          title,
+          content,
+          bullet_points,
+          breakfast,
+          lunch,
+          dinner,
+          mood_score,
+          condition_score
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entry.date,
+          title,
+          entry.content,
+          entry.bulletPoints,
+          entry.breakfast,
+          entry.lunch,
+          entry.dinner,
+          moodScore,
+          conditionScore,
+        ],
       )
       const entryId = result.insertId
 
-      // 入力されたタグを tags に作成し、entry_tags で今回の日記または記録と紐付ける。
+      // 入力されたタグを tags に作成し、entry_tags で今回の日記と紐付ける。
       const uniqueTags = [...new Set(entry.tags.map((tag) => tag.trim()).filter(Boolean))]
       const tagIds: number[] = []
 
@@ -1271,14 +1396,11 @@ function registerIpcHandlers() {
         )
       }
 
-      // 日記の場合だけ、設定画面で登録された習慣項目をhabit_logsに保存する。
       const habitLogIds: number[] = []
 
-      if (kind === 'diary') {
-        for (const habit of entry.habits) {
-          const habitLogId = await upsertHabitLog(connection, entry.date, habit.id, habit.isDone)
-          habitLogIds.push(habitLogId)
-        }
+      for (const habit of entry.habits) {
+        const habitLogId = await upsertHabitLog(connection, entry.date, habit.id, habit.isDone)
+        habitLogIds.push(habitLogId)
       }
 
       await connection.commit()
