@@ -12,6 +12,12 @@ import {
 } from '../../shared/SettingsModal'
 import { SettingsShortcuts } from '../../shared/SettingsShortcuts'
 import type { FeaturePageProps, FixedTagSetting, HabitSetting } from '../../shared/types'
+import {
+  CONDITION_OPTIONS,
+  MOOD_OPTIONS,
+  parseWellbeingScore,
+  type WellbeingScore,
+} from '../../shared/wellbeing'
 
 type OpenSettingsModal = {
   target: SettingsModalTarget
@@ -24,6 +30,11 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const [tags, setTags] = useState('')
   const [content, setContent] = useState('')
   const [bulletPoints, setBulletPoints] = useState('')
+  const [breakfast, setBreakfast] = useState('')
+  const [lunch, setLunch] = useState('')
+  const [dinner, setDinner] = useState('')
+  const [moodScore, setMoodScore] = useState<WellbeingScore | null>(null)
+  const [conditionScore, setConditionScore] = useState<WellbeingScore | null>(null)
   const [habitChecks, setHabitChecks] = useState<Record<number, boolean>>({})
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -40,10 +51,9 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const loadDiarySettings = useCallback(async () => {
     try {
       const settings = await window.logApp.listSettings()
-      const diaryTags = settings.fixedTags.filter((tag) => tag.entryKinds.includes('diary'))
-      setFixedTags(diaryTags)
+      setFixedTags(settings.fixedTags)
       setSelectedFixedTagIds((currentIds) =>
-        currentIds.filter((id) => diaryTags.some((tag) => tag.id === id)),
+        currentIds.filter((id) => settings.fixedTags.some((tag) => tag.id === id)),
       )
       setHabitSettings(settings.habits)
       setHabitChecks((currentChecks) =>
@@ -69,6 +79,11 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     setTags('')
     setContent('')
     setBulletPoints('')
+    setBreakfast('')
+    setLunch('')
+    setDinner('')
+    setMoodScore(null)
+    setConditionScore(null)
     setSelectedFixedTagIds([])
     setHabitChecks(Object.fromEntries(habitSettings.map((habit) => [habit.id, false])))
   }
@@ -131,12 +146,16 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
 
     try {
       const result = await window.logApp.saveEntry({
-        kind: 'diary',
         date,
         title,
         tags: mergedTags,
         content,
         bulletPoints,
+        breakfast,
+        lunch,
+        dinner,
+        moodScore,
+        conditionScore,
         habits: scheduledHabitSettings.map((habit) => ({
           id: habit.id,
           isDone: habitChecks[habit.id] ?? false,
@@ -186,6 +205,73 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
+
+      <fieldset className="wellbeing-fieldset">
+        <legend>今日の調子（任意）</legend>
+        <div className="wellbeing-input-grid">
+          <label>
+            <span>気分</span>
+            <select
+              value={moodScore ?? ''}
+              onChange={(event) => setMoodScore(parseWellbeingScore(event.target.value))}
+            >
+              <option value="">未設定</option>
+              {MOOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.emoji} {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>体調</span>
+            <select
+              value={conditionScore ?? ''}
+              onChange={(event) => setConditionScore(parseWellbeingScore(event.target.value))}
+            >
+              <option value="">未設定</option>
+              {CONDITION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.emoji} {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="meal-fieldset">
+        <legend>今日の食事（任意）</legend>
+        <div className="meal-input-grid">
+          <label>
+            <span>朝食</span>
+            <textarea
+              rows={2}
+              placeholder="例: トースト、ヨーグルト"
+              value={breakfast}
+              onChange={(event) => setBreakfast(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>昼食</span>
+            <textarea
+              rows={2}
+              placeholder="例: おにぎり、みそ汁"
+              value={lunch}
+              onChange={(event) => setLunch(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>夕食</span>
+            <textarea
+              rows={2}
+              placeholder="例: カレー、サラダ"
+              value={dinner}
+              onChange={(event) => setDinner(event.target.value)}
+            />
+          </label>
+        </div>
+      </fieldset>
 
       <div className="field">
         <div className="field-heading">

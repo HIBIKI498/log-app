@@ -1,22 +1,50 @@
-import { type FocusEvent, type KeyboardEvent, useCallback, useEffect, useState } from 'react'
+import {
+  type FocusEvent,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import {
   createInitialBulletPointLine,
   insertBulletPointLine,
 } from '../../shared/bulletPoints'
-import type { EntryKind, FeaturePageProps } from '../../shared/types'
+import {
+  CALENDAR_WEEKDAYS,
+  createCalendarDays,
+  formatCalendarMonth,
+  getCalendarMonthRange,
+  getMonthFromDate,
+  moveCalendarMonth,
+} from '../../shared/calendar'
+import { getTodayString } from '../../shared/date'
+import type { FeaturePageProps } from '../../shared/types'
+import {
+  CONDITION_OPTIONS,
+  formatWellbeingScore,
+  MOOD_OPTIONS,
+  parseWellbeingScore,
+  type WellbeingScore,
+} from '../../shared/wellbeing'
 
 type HistoryEntry = {
   id: number
-  kind: EntryKind
   date: string
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   tags: string[]
 }
 
+type HistoryView = 'list' | 'calendar'
+
 type HistorySearchFilters = {
-  kind: EntryKind
   keyword: string
   tag: string
   startDate: string
@@ -25,22 +53,20 @@ type HistorySearchFilters = {
 
 type HistoryEditDraft = {
   id: number
-  kind: EntryKind
   date: string
   title: string
   content: string
   bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
   tags: string
 }
 
-const ENTRY_KIND_LABELS: Record<EntryKind, string> = {
-  diary: '日記',
-  record: '記録',
-}
-
-function createEmptyFilters(kind: EntryKind): HistorySearchFilters {
+function createEmptyFilters(): HistorySearchFilters {
   return {
-    kind,
     keyword: '',
     tag: '',
     startDate: '',
@@ -56,8 +82,13 @@ function splitBulletPoints(bulletPoints: string) {
 }
 
 export function HistoryPage({ isActive }: FeaturePageProps) {
-  const [historyKind, setHistoryKind] = useState<EntryKind>('diary')
+  const today = getTodayString()
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
+  const [historyView, setHistoryView] = useState<HistoryView>('list')
+  const [calendarMonth, setCalendarMonth] = useState(() => getMonthFromDate(getTodayString()))
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(() =>
+    getTodayString(),
+  )
   const [historyMessage, setHistoryMessage] = useState('')
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isMutatingHistory, setIsMutatingHistory] = useState(false)
@@ -67,10 +98,29 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const [historyStartDate, setHistoryStartDate] = useState('')
   const [historyEndDate, setHistoryEndDate] = useState('')
   const [historySearchFilters, setHistorySearchFilters] =
-    useState<HistorySearchFilters>(() => createEmptyFilters('diary'))
+    useState<HistorySearchFilters>(createEmptyFilters)
   const [historyEditDraft, setHistoryEditDraft] = useState<HistoryEditDraft | null>(null)
   const [pendingHistoryDeletion, setPendingHistoryDeletion] = useState<HistoryEntry | null>(null)
   const [expandedHistoryDetailIds, setExpandedHistoryDetailIds] = useState<number[]>([])
+
+  const calendarDays = useMemo(() => createCalendarDays(calendarMonth), [calendarMonth])
+  const calendarEntriesByDate = useMemo(() => {
+    const entriesByDate = new Map<string, HistoryEntry[]>()
+
+    for (const entry of historyEntries) {
+      const entries = entriesByDate.get(entry.date) ?? []
+      entries.push(entry)
+      entriesByDate.set(entry.date, entries)
+    }
+
+    return entriesByDate
+  }, [historyEntries])
+  const displayedHistoryEntries =
+    historyView === 'calendar'
+      ? selectedCalendarDate
+        ? (calendarEntriesByDate.get(selectedCalendarDate) ?? [])
+        : []
+      : historyEntries
 
   const toggleHistoryDetail = (entryId: number) => {
     setExpandedHistoryDetailIds((currentIds) =>
@@ -80,22 +130,90 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     )
   }
 
+  const changeHistoryView = (nextView: HistoryView) => {
+    setHistoryView(nextView)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+
+    if (nextView === 'calendar') {
+      setSelectedCalendarDate((currentDate) =>
+        currentDate && getMonthFromDate(currentDate) === calendarMonth
+          ? currentDate
+          : calendarMonth === getMonthFromDate(today)
+            ? today
+            : null,
+      )
+    }
+  }
+
+  const changeCalendarMonth = (offset: number) => {
+    const nextMonth = moveCalendarMonth(calendarMonth, offset)
+    setCalendarMonth(nextMonth)
+    setSelectedCalendarDate(nextMonth === getMonthFromDate(today) ? today : null)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+  }
+
+  const showCurrentMonth = () => {
+    setCalendarMonth(getMonthFromDate(today))
+    setSelectedCalendarDate(today)
+    setHistoryEditDraft(null)
+    setPendingHistoryDeletion(null)
+    setExpandedHistoryDetailIds([])
+    setHistoryMessage('')
+  }
+
   const loadHistoryEntries = useCallback(async () => {
     setIsLoadingHistory(true)
     setHistoryMessage('')
 
     try {
-      const entries = await window.logApp.listEntries(historySearchFilters)
+      let queryFilters: EntrySearchFilters = historySearchFilters
+
+      if (historyView === 'calendar') {
+        const monthRange = getCalendarMonthRange(calendarMonth)
+        const startDate = historySearchFilters.startDate
+          ? historySearchFilters.startDate > monthRange.startDate
+            ? historySearchFilters.startDate
+            : monthRange.startDate
+          : monthRange.startDate
+        const endDate = historySearchFilters.endDate
+          ? historySearchFilters.endDate < monthRange.endDate
+            ? historySearchFilters.endDate
+            : monthRange.endDate
+          : monthRange.endDate
+
+        if (startDate > endDate) {
+          setHistoryEntries([])
+          setHistoryMessage('表示中の月は、指定した日付範囲に含まれていません。')
+          return
+        }
+
+        queryFilters = {
+          ...historySearchFilters,
+          startDate,
+          endDate,
+          resultLimit: null,
+        }
+      }
+
+      const entries = await window.logApp.listEntries(queryFilters)
       setHistoryEntries(entries)
 
       if (entries.length === 0) {
-        const hasSearchCondition = Object.entries(historySearchFilters).some(
-          ([key, value]) => key !== 'kind' && value !== undefined && value !== '',
-        )
+        const hasSearchCondition = Object.values(historySearchFilters).some(Boolean)
         setHistoryMessage(
-          hasSearchCondition
-            ? `検索条件に一致する${ENTRY_KIND_LABELS[historyKind]}がありません。`
-            : `まだ${ENTRY_KIND_LABELS[historyKind]}がありません。`,
+          historyView === 'calendar'
+            ? hasSearchCondition
+              ? 'この月に検索条件と一致する日記はありません。'
+              : 'この月の日記はありません。'
+            : hasSearchCondition
+              ? '検索条件に一致する日記がありません。'
+              : 'まだ日記がありません。',
         )
       }
     } catch (error) {
@@ -104,17 +222,17 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     } finally {
       setIsLoadingHistory(false)
     }
-  }, [historyKind, historySearchFilters])
+  }, [calendarMonth, historySearchFilters, historyView])
 
   const loadHistoryTagOptions = useCallback(async () => {
     try {
-      const tags = await window.logApp.listEntryTags(historyKind)
+      const tags = await window.logApp.listEntryTags()
       setHistoryTagOptions(tags)
     } catch (error) {
       console.error('履歴検索用タグの取得に失敗しました:', error)
       setHistoryMessage('タグ候補の取得に失敗しました。SQLite の接続状態を確認してください。')
     }
-  }, [historyKind])
+  }, [])
 
   useEffect(() => {
     if (isActive) {
@@ -138,7 +256,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setPendingHistoryDeletion(null)
     setExpandedHistoryDetailIds([])
     setHistorySearchFilters({
-      kind: historyKind,
       keyword: historyKeyword.trim(),
       tag: historyTag.trim(),
       startDate: historyStartDate,
@@ -154,19 +271,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setHistoryEditDraft(null)
     setPendingHistoryDeletion(null)
     setExpandedHistoryDetailIds([])
-    setHistorySearchFilters(createEmptyFilters(historyKind))
-  }
-
-  const handleKindChange = (kind: EntryKind) => {
-    setHistoryKind(kind)
-    setHistoryKeyword('')
-    setHistoryTag('')
-    setHistoryStartDate('')
-    setHistoryEndDate('')
-    setHistoryEditDraft(null)
-    setPendingHistoryDeletion(null)
-    setExpandedHistoryDetailIds([])
-    setHistorySearchFilters(createEmptyFilters(kind))
+    setHistorySearchFilters(createEmptyFilters())
   }
 
   const applyHistoryTagFilter = (tag: string) => {
@@ -176,7 +281,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     setExpandedHistoryDetailIds([])
     setHistorySearchFilters((currentFilters) => ({
       ...currentFilters,
-      kind: historyKind,
       tag,
     }))
   }
@@ -184,11 +288,15 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
   const startHistoryEdit = (entry: HistoryEntry) => {
     setHistoryEditDraft({
       id: entry.id,
-      kind: entry.kind,
       date: entry.date,
       title: entry.title,
       content: entry.content,
       bulletPoints: entry.bulletPoints,
+      breakfast: entry.breakfast,
+      lunch: entry.lunch,
+      dinner: entry.dinner,
+      moodScore: entry.moodScore,
+      conditionScore: entry.conditionScore,
       tags: entry.tags.join(', '),
     })
     setPendingHistoryDeletion(null)
@@ -265,16 +373,20 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
         title: historyEditDraft.title,
         content: historyEditDraft.content,
         bulletPoints: historyEditDraft.bulletPoints,
+        breakfast: historyEditDraft.breakfast,
+        lunch: historyEditDraft.lunch,
+        dinner: historyEditDraft.dinner,
+        moodScore: historyEditDraft.moodScore,
+        conditionScore: historyEditDraft.conditionScore,
         tags: historyEditDraft.tags
           .split(',')
           .map((tag) => tag.trim())
           .filter(Boolean),
       })
 
-      const updatedKindLabel = ENTRY_KIND_LABELS[historyEditDraft.kind]
       setHistoryEditDraft(null)
       await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
-      setHistoryMessage(`${updatedKindLabel}を更新しました。タグ: ${result.tagCount}件`)
+      setHistoryMessage(`日記を更新しました。タグ: ${result.tagCount}件`)
     } catch (error) {
       console.error('履歴の更新に失敗しました:', error)
       setHistoryMessage('履歴の更新に失敗しました。')
@@ -293,11 +405,10 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
 
     try {
       await window.logApp.deleteEntry(pendingHistoryDeletion.id)
-      const deletedKindLabel = ENTRY_KIND_LABELS[pendingHistoryDeletion.kind]
       setPendingHistoryDeletion(null)
       setHistoryEditDraft(null)
       await Promise.all([loadHistoryEntries(), loadHistoryTagOptions()])
-      setHistoryMessage(`${deletedKindLabel}を削除しました。`)
+      setHistoryMessage('日記を削除しました。')
     } catch (error) {
       console.error('履歴の削除に失敗しました:', error)
       setHistoryMessage('履歴の削除に失敗しました。')
@@ -310,33 +421,36 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
     <section className="history-section" hidden={!isActive}>
       <div className="section-heading">
         <h2>履歴</h2>
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={isLoadingHistory || isMutatingHistory}
-          onClick={() => void loadHistoryEntries()}
-        >
-          {isLoadingHistory ? '読み込み中...' : '更新'}
-        </button>
-      </div>
-
-      <div className="history-kind-tabs" aria-label="履歴の種類">
-        {(
-          [
-            ['diary', '日記'],
-            ['record', '記録'],
-          ] as const
-        ).map(([kind, label]) => (
+        <div className="section-heading-actions">
+          <div className="history-view-switch" aria-label="履歴の表示方法">
+            <button
+              aria-pressed={historyView === 'list'}
+              className={historyView === 'list' ? 'active' : ''}
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeHistoryView('list')}
+            >
+              一覧表示
+            </button>
+            <button
+              aria-pressed={historyView === 'calendar'}
+              className={historyView === 'calendar' ? 'active' : ''}
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeHistoryView('calendar')}
+            >
+              カレンダー表示
+            </button>
+          </div>
           <button
-            aria-pressed={historyKind === kind}
-            className={historyKind === kind ? 'active' : ''}
-            key={kind}
+            className="secondary-button"
             type="button"
-            onClick={() => handleKindChange(kind)}
+            disabled={isLoadingHistory || isMutatingHistory}
+            onClick={() => void loadHistoryEntries()}
           >
-            {label}
+            {isLoadingHistory ? '読み込み中...' : '更新'}
           </button>
-        ))}
+        </div>
       </div>
 
       <form
@@ -350,7 +464,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           <span>キーワード</span>
           <input
             type="search"
-            placeholder={`${ENTRY_KIND_LABELS[historyKind]}のキーワードを検索`}
+            placeholder="日記や食事のキーワードを検索"
             value={historyKeyword}
             onChange={(event) => setHistoryKeyword(event.target.value)}
           />
@@ -401,16 +515,122 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
       </form>
 
       {historyMessage ? <p className="history-message">{historyMessage}</p> : null}
-      {!historyMessage ? (
+      {historyView === 'list' && !historyMessage ? (
         <p className="history-result-count">表示件数: {historyEntries.length}件</p>
       ) : null}
 
+      {historyView === 'calendar' ? (
+        <section className="history-calendar" aria-labelledby="calendar-month-heading">
+          <div className="calendar-toolbar">
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeCalendarMonth(-1)}
+            >
+              前月
+            </button>
+            <div>
+              <h3 id="calendar-month-heading">{formatCalendarMonth(calendarMonth)}</h3>
+              <span>{historyEntries.length}件の日記</span>
+            </div>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={() => changeCalendarMonth(1)}
+            >
+              翌月
+            </button>
+            <button
+              className="secondary-button calendar-today-button"
+              type="button"
+              disabled={isLoadingHistory || isMutatingHistory}
+              onClick={showCurrentMonth}
+            >
+              今月
+            </button>
+          </div>
+
+          <div className="calendar-weekdays" aria-hidden="true">
+            {CALENDAR_WEEKDAYS.map((weekday) => (
+              <span key={weekday}>{weekday}</span>
+            ))}
+          </div>
+
+          <div
+            className="calendar-grid"
+            role="grid"
+            aria-label={`${formatCalendarMonth(calendarMonth)}の日記カレンダー`}
+          >
+            {calendarDays.map((day, index) => {
+              if (!day) {
+                return <span className="calendar-empty-cell" key={`empty-${index}`} />
+              }
+
+              const dayEntries = calendarEntriesByDate.get(day.date) ?? []
+              const moodEntry = dayEntries.find((entry) => entry.moodScore !== null)
+              const moodEmoji = moodEntry?.moodScore
+                ? MOOD_OPTIONS.find((option) => option.value === moodEntry.moodScore)?.emoji
+                : null
+              const classNames = [
+                'calendar-day',
+                day.date === today ? 'today' : '',
+                day.date === selectedCalendarDate ? 'selected' : '',
+                dayEntries.length > 0 ? 'has-entries' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+
+              return (
+                <button
+                  aria-label={`${day.date}${dayEntries.length > 0 ? `、日記${dayEntries.length}件` : '、日記なし'}`}
+                  className={classNames}
+                  key={day.date}
+                  role="gridcell"
+                  type="button"
+                  onClick={() => {
+                    setSelectedCalendarDate(day.date)
+                    setHistoryEditDraft(null)
+                    setPendingHistoryDeletion(null)
+                    setExpandedHistoryDetailIds([])
+                    setHistoryMessage('')
+                  }}
+                >
+                  <span className="calendar-day-number">{day.day}</span>
+                  {moodEmoji ? <span className="calendar-day-mood">{moodEmoji}</span> : null}
+                  {dayEntries.length > 0 ? (
+                    <span className="calendar-day-count">{dayEntries.length}件</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="calendar-selection-heading">
+            {selectedCalendarDate ? (
+              <>
+                <h3>{selectedCalendarDate}の日記</h3>
+                <span>{displayedHistoryEntries.length}件</span>
+              </>
+            ) : (
+              <p>日付を選択すると、その日の日記を表示します。</p>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {historyView === 'calendar' && selectedCalendarDate && displayedHistoryEntries.length === 0 ? (
+        <p className="calendar-selected-empty">選択した日の日記はありません。</p>
+      ) : null}
+
       <div className="history-list">
-        {historyEntries.map((entry) => {
+        {displayedHistoryEntries.map((entry) => {
           const isEditing = historyEditDraft?.id === entry.id
           const isPendingDeletion = pendingHistoryDeletion?.id === entry.id
           const isDetailOpen = expandedHistoryDetailIds.includes(entry.id)
           const bulletPointItems = splitBulletPoints(entry.bulletPoints)
+          const hasMealRecord = Boolean(entry.breakfast || entry.lunch || entry.dinner)
           const detailPanelId = `history-detail-${entry.id}`
 
           return (
@@ -444,6 +664,93 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       }
                     />
                   </label>
+                  <fieldset className="history-wellbeing-editor history-edit-wide">
+                    <legend>その日の調子（任意）</legend>
+                    <div className="wellbeing-input-grid">
+                      <label>
+                        <span>気分</span>
+                        <select
+                          value={historyEditDraft.moodScore ?? ''}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              moodScore: parseWellbeingScore(event.target.value),
+                            })
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {MOOD_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>体調</span>
+                        <select
+                          value={historyEditDraft.conditionScore ?? ''}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              conditionScore: parseWellbeingScore(event.target.value),
+                            })
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {CONDITION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <fieldset className="history-meal-editor history-edit-wide">
+                    <legend>その日の食事（任意）</legend>
+                    <div className="meal-input-grid">
+                      <label>
+                        <span>朝食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.breakfast}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              breakfast: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>昼食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.lunch}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              lunch: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>夕食</span>
+                        <textarea
+                          rows={2}
+                          value={historyEditDraft.dinner}
+                          onChange={(event) =>
+                            setHistoryEditDraft({
+                              ...historyEditDraft,
+                              dinner: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
                   <label className="history-edit-wide">
                     <span>タグ</span>
                     <input
@@ -458,7 +765,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                     />
                   </label>
                   <label className="history-edit-wide">
-                    <span>{entry.kind === 'diary' ? '出来事・日記' : '記録内容'}</span>
+                    <span>出来事・日記</span>
                     <textarea
                       rows={4}
                       value={historyEditDraft.content}
@@ -510,12 +817,40 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       <time dateTime={entry.date}>{entry.date}</time>
                       <h3>{entry.title || '無題'}</h3>
                     </div>
-                    <strong>{ENTRY_KIND_LABELS[entry.kind]}</strong>
                   </div>
+                  {entry.tags.length > 0 ? (
+                    <div className="history-tags">
+                      {entry.tags.map((tag) => (
+                        <button
+                          key={`${entry.id}-${tag}`}
+                          type="button"
+                          onClick={() => applyHistoryTagFilter(tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {entry.moodScore !== null || entry.conditionScore !== null ? (
+                    <div className="history-wellbeing-summary" aria-label="その日の調子">
+                      {entry.moodScore !== null ? (
+                        <span>
+                          <strong>気分</strong>
+                          {formatWellbeingScore(entry.moodScore, MOOD_OPTIONS)}
+                        </span>
+                      ) : null}
+                      {entry.conditionScore !== null ? (
+                        <span>
+                          <strong>体調</strong>
+                          {formatWellbeingScore(entry.conditionScore, CONDITION_OPTIONS)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {entry.content ? <p className="history-item-content">{entry.content}</p> : null}
                   {!entry.content ? (
                     <p className="history-item-content">
-                      {ENTRY_KIND_LABELS[entry.kind]}本文はありません。
+                      日記本文はありません。
                     </p>
                   ) : null}
                   {isDetailOpen ? (
@@ -530,19 +865,31 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       ) : (
                         <p className="history-detail-empty">箇条書きメモはありません。</p>
                       )}
-                    </div>
-                  ) : null}
-                  {entry.tags.length > 0 ? (
-                    <div className="history-tags">
-                      {entry.tags.map((tag) => (
-                        <button
-                          key={`${entry.id}-${tag}`}
-                          type="button"
-                          onClick={() => applyHistoryTagFilter(tag)}
-                        >
-                          {tag}
-                        </button>
-                      ))}
+                      {hasMealRecord ? (
+                        <div className="history-meal-detail">
+                          <strong className="history-detail-heading">食事</strong>
+                          <dl>
+                            {entry.breakfast ? (
+                              <div>
+                                <dt>朝食</dt>
+                                <dd>{entry.breakfast}</dd>
+                              </div>
+                            ) : null}
+                            {entry.lunch ? (
+                              <div>
+                                <dt>昼食</dt>
+                                <dd>{entry.lunch}</dd>
+                              </div>
+                            ) : null}
+                            {entry.dinner ? (
+                              <div>
+                                <dt>夕食</dt>
+                                <dd>{entry.dinner}</dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="history-actions">
@@ -580,7 +927,7 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
 
               {isPendingDeletion ? (
                 <div className="history-delete-confirmation">
-                  <p>この{ENTRY_KIND_LABELS[pendingHistoryDeletion.kind]}を削除しますか？</p>
+                  <p>この日記を削除しますか？</p>
                   <div>
                     <button
                       className="secondary-button"
