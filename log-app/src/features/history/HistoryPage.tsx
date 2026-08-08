@@ -818,6 +818,19 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                       <h3>{entry.title || '無題'}</h3>
                     </div>
                   </div>
+                  {entry.tags.length > 0 ? (
+                    <div className="history-tags">
+                      {entry.tags.map((tag) => (
+                        <button
+                          key={`${entry.id}-${tag}`}
+                          type="button"
+                          onClick={() => applyHistoryTagFilter(tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   {entry.moodScore !== null || entry.conditionScore !== null ? (
                     <div className="history-wellbeing-summary" aria-label="その日の調子">
                       {entry.moodScore !== null ? (
@@ -877,19 +890,6 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
                           </dl>
                         </div>
                       ) : null}
-                    </div>
-                  ) : null}
-                  {entry.tags.length > 0 ? (
-                    <div className="history-tags">
-                      {entry.tags.map((tag) => (
-                        <button
-                          key={`${entry.id}-${tag}`}
-                          type="button"
-                          onClick={() => applyHistoryTagFilter(tag)}
-                        >
-                          {tag}
-                        </button>
-                      ))}
                     </div>
                   ) : null}
                   <div className="history-actions">
