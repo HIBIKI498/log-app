@@ -1858,6 +1858,231 @@ button {
   gap: 10px;
 }
 
+.ai-assist-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #c8d9ee;
+  border-left: 4px solid #006bd6;
+  border-radius: 7px;
+  padding: 16px;
+  background: #f6faff;
+}
+
+.ai-assist-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ai-assist-header h3,
+.ai-assist-header p,
+.ai-assist-notice,
+.ai-assist-message {
+  margin: 0;
+}
+
+.ai-assist-header h3 {
+  color: #12344f;
+  font-size: 16px;
+}
+
+.ai-assist-header p {
+  margin-top: 5px;
+  color: #425466;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ai-assist-settings {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-assist-settings > span {
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #7a3d00;
+  background: #fff0dc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-assist-settings > span.configured {
+  color: #136c37;
+  background: #e6f6ec;
+}
+
+.ai-assist-notice {
+  border-radius: 5px;
+  padding: 9px 11px;
+  color: #555555;
+  background: #ffffff;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ai-assist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-assist-message {
+  color: #33475b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ai-settings-modal {
+  width: min(100%, 620px);
+}
+
+.ai-settings-description,
+.ai-preview-description {
+  margin: 0 0 16px;
+  color: #4d5966;
+  line-height: 1.7;
+}
+
+.ai-settings-form {
+  display: grid;
+  gap: 16px;
+}
+
+.ai-settings-form .settings-field select {
+  width: 100%;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  padding: 9px 10px;
+  color: #111111;
+  background: #ffffff;
+}
+
+.ai-settings-status {
+  margin: 0;
+  border-radius: 5px;
+  padding: 9px 11px;
+  color: #7a3d00;
+  background: #fff0dc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-settings-status.configured {
+  color: #136c37;
+  background: #e6f6ec;
+}
+
+.ai-settings-actions,
+.ai-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ai-settings-actions-spacer {
+  flex: 1 1 auto;
+}
+
+.ai-modal-primary,
+.ai-settings-actions .danger-button {
+  min-height: 40px;
+  border-radius: 4px;
+  padding: 9px 14px;
+  color: #ffffff;
+  background: #006bd6;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-modal-primary:hover {
+  background: #005bbb;
+}
+
+.ai-settings-actions .danger-button {
+  background: #b42318;
+}
+
+.ai-settings-actions .danger-button:hover {
+  background: #971f16;
+}
+
+.ai-modal-primary:disabled,
+.ai-settings-actions .danger-button:disabled {
+  background: #8aaed3;
+  cursor: not-allowed;
+}
+
+.ai-preview-backdrop {
+  z-index: 1075;
+}
+
+.ai-preview-modal {
+  width: min(100%, 980px);
+}
+
+.ai-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ai-preview-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #d9dee5;
+  border-radius: 7px;
+  padding: 14px;
+  background: #fafbfc;
+}
+
+.ai-preview-card.generated {
+  border-color: #abcbea;
+  background: #f5faff;
+}
+
+.ai-preview-card h4 {
+  margin: 0;
+  color: #273746;
+  font-size: 15px;
+}
+
+.ai-preview-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #333333;
+  font-weight: 700;
+}
+
+.ai-preview-field input,
+.ai-preview-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  padding: 9px 10px;
+  color: #202020;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 400;
+}
+
+.ai-preview-field textarea {
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.ai-preview-actions {
+  margin-top: 18px;
+}
+
 .settings-empty-message {
   margin: 0;
   border: 1px dashed #c7cdd4;
@@ -1990,6 +2215,33 @@ button {
 
   .settings-modal-actions button {
     width: 100%;
+  }
+
+  .ai-assist-header {
+    display: grid;
+  }
+
+  .ai-assist-settings {
+    justify-content: space-between;
+  }
+
+  .ai-assist-actions button,
+  .ai-settings-actions button,
+  .ai-preview-actions button {
+    width: 100%;
+  }
+
+  .ai-settings-actions,
+  .ai-preview-actions {
+    flex-direction: column-reverse;
+  }
+
+  .ai-settings-actions-spacer {
+    display: none;
+  }
+
+  .ai-preview-grid {
+    grid-template-columns: 1fr;
   }
 
   .confirmation-modal-actions {

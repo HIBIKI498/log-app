@@ -60,6 +60,7 @@ npm run build
 - 固定タグと自由入力タグによる分類
 - 履歴の一覧・カレンダー表示、キーワード・日付範囲検索、タグ絞り込み
 - 箇条書きメモの入力補助
+- OpenAI APIによる日記本文の生成・文章修正
 - 習慣項目の曜日設定、日記画面でのチェック記録
 - レポート画面での習慣達成率表示
 - ToDo の追加、完了切り替え、絞り込み、削除
@@ -71,6 +72,9 @@ log-app/
 ├── README.md
 └── log-app/
     ├── electron/
+    │   ├── ai/
+    │   │   ├── aiSettings.ts
+    │   │   └── openAiDiary.ts
     │   ├── main.ts
     │   ├── preload.ts
     │   └── electron-env.d.ts
@@ -79,7 +83,10 @@ log-app/
     │   ├── main.tsx
     │   ├── index.css
     │   ├── features/
-    │   │   ├── diary/DiaryPage.tsx
+    │   │   ├── diary/
+    │   │   │   ├── AiDraftPreviewModal.tsx
+    │   │   │   ├── AiSettingsModal.tsx
+    │   │   │   └── DiaryPage.tsx
     │   │   ├── history/HistoryPage.tsx
     │   │   ├── reports/ReportsPage.tsx
     │   │   ├── tags/TagsPage.tsx
@@ -105,6 +112,18 @@ log-app/
 - `log-app/electron/main.ts`: SQLite 初期化と Electron IPC を担当します。
 - `log-app/electron/preload.ts`: `window.logApp` API を React 側に公開します。
 
+## AIアシストの設定
+
+AIアシストを利用するには、OpenAI API Platformで発行したAPIキーが必要です。日記画面の
+「AI設定」からAPIキーと使用モデルを登録し、「接続テスト」で利用可否を確認してください。
+
+- APIキーはソースコードや `.env` には保存しません。
+- 登録したAPIキーはElectronの安全な保存機能で暗号化し、`userData` フォルダーに保存します。
+- 「AIで本文を作る」は、箇条書きメモ、食事、タグなどをもとにタイトルと本文を提案します。
+- 「AIで文章を整える」は、入力済み本文の事実と意味を保ちながら文章を修正します。
+- AIの提案はプレビューで確認し、「本文に反映」を選ぶまで入力中の日記を変更しません。
+- AIの提案を反映した後も、「保存する」を押すまでSQLiteには保存されません。
+
 ## SQLite
 
 主なテーブル:
@@ -123,7 +142,9 @@ log-app/
 
 ## データとプライバシー
 
-- 日記、習慣、ToDo は外部サーバーへ送信せず、端末内の SQLite に保存します。
+- 日記、習慣、ToDo は通常、外部サーバーへ送信せず、端末内の SQLite に保存します。
+- AIアシストを実行した場合に限り、画面に入力されている日記素材をOpenAI APIへ送信します。
+- OpenAI APIキーそのものはReact画面へ読み戻さず、設定済みかどうかだけを表示します。
 - データベースは暗号化されません。端末を共有する場合は OS のアカウントとディスク暗号化を利用してください。
 - 通常の保存先は Electron の `userData` フォルダーです。アンインストールしてもデータは自動削除されません。
 - インストーラー版は、更新確認のため GitHub Releases に接続します。

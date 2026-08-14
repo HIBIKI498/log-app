@@ -18,10 +18,17 @@ import {
   parseWellbeingScore,
   type WellbeingScore,
 } from '../../shared/wellbeing'
+import { AiDraftPreviewModal } from './AiDraftPreviewModal'
+import { AiSettingsModal } from './AiSettingsModal'
 
 type OpenSettingsModal = {
   target: SettingsModalTarget
   mode: SettingsModalMode
+}
+
+type AiDraftPreview = {
+  draft: AiDiaryDraft
+  mode: 'generate' | 'rewrite'
 }
 
 export function DiaryPage({ isActive }: FeaturePageProps) {
@@ -42,6 +49,11 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
   const [selectedFixedTagIds, setSelectedFixedTagIds] = useState<number[]>([])
   const [habitSettings, setHabitSettings] = useState<HabitSetting[]>([])
   const [openSettingsModal, setOpenSettingsModal] = useState<OpenSettingsModal | null>(null)
+  const [aiSettings, setAiSettings] = useState<AiSettingsSummary | null>(null)
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false)
+  const [isAiWorking, setIsAiWorking] = useState(false)
+  const [aiMessage, setAiMessage] = useState('')
+  const [aiDraftPreview, setAiDraftPreview] = useState<AiDraftPreview | null>(null)
 
   const selectedDateWeekday = getIsoWeekday(date)
   const scheduledHabitSettings = habitSettings.filter((habit) =>
@@ -67,11 +79,34 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     }
   }, [])
 
+  const loadAiSettings = useCallback(async () => {
+    try {
+      const settings = await window.logApp.getAiSettings()
+      setAiSettings(settings)
+    } catch (error) {
+      console.error('AI設定の取得に失敗しました:', error)
+      setAiMessage('AI設定を取得できませんでした。')
+    }
+  }, [])
+
   useEffect(() => {
     if (isActive) {
       void loadDiarySettings()
+      void loadAiSettings()
     }
-  }, [isActive, loadDiarySettings])
+  }, [isActive, loadAiSettings, loadDiarySettings])
+
+  const getMergedTags = () => {
+    const customTags = tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+    const selectedFixedTags = fixedTags
+      .filter((tag) => selectedFixedTagIds.includes(tag.id))
+      .map((tag) => tag.name)
+
+    return [...new Set([...selectedFixedTags, ...customTags])]
+  }
 
   const resetDiaryForm = () => {
     setDate(getTodayString())
@@ -86,6 +121,8 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     setConditionScore(null)
     setSelectedFixedTagIds([])
     setHabitChecks(Object.fromEntries(habitSettings.map((habit) => [habit.id, false])))
+    setAiDraftPreview(null)
+    setAiMessage('')
   }
 
   const handleBulletPointsKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -126,15 +163,47 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
     })
   }
 
+  const handleAiRequest = async (mode: 'generate' | 'rewrite') => {
+    if (!aiSettings?.configured) {
+      setAiMessage('最初にOpenAI APIキーを設定してください。')
+      setIsAiSettingsOpen(true)
+      return
+    }
+
+    if (mode === 'rewrite' && !content.trim()) {
+      setAiMessage('文章を整えるには、先に日記本文を入力してください。')
+      return
+    }
+
+    setIsAiWorking(true)
+    setAiMessage('')
+
+    try {
+      const draft = await window.logApp.generateDiaryDraft({
+        mode,
+        date,
+        title,
+        tags: getMergedTags(),
+        content,
+        bulletPoints,
+        breakfast,
+        lunch,
+        dinner,
+        moodScore,
+        conditionScore,
+      })
+
+      setAiDraftPreview({ draft, mode })
+    } catch (error) {
+      console.error('AIによる日記作成に失敗しました:', error)
+      setAiMessage(error instanceof Error ? error.message : 'AIによる日記作成に失敗しました。')
+    } finally {
+      setIsAiWorking(false)
+    }
+  }
+
   const handleSave = async () => {
-    const customTags = tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean)
-    const selectedFixedTags = fixedTags
-      .filter((tag) => selectedFixedTagIds.includes(tag.id))
-      .map((tag) => tag.name)
-    const mergedTags = [...new Set([...selectedFixedTags, ...customTags])]
+    const mergedTags = getMergedTags()
 
     if (!date) {
       setMessage('日付を入力してください。')
@@ -338,6 +407,51 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
         />
       </label>
 
+      <section className="ai-assist-panel" aria-labelledby="ai-assist-heading">
+        <div className="ai-assist-header">
+          <div>
+            <h3 id="ai-assist-heading">AIアシスト</h3>
+            <p>
+              箇条書きメモや食事、タグから本文を作成したり、入力済みの文章を整えたりできます。
+            </p>
+          </div>
+          <div className="ai-assist-settings">
+            <span className={aiSettings?.configured ? 'configured' : ''}>
+              {aiSettings?.configured ? 'API設定済み' : 'API未設定'}
+            </span>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={isAiWorking || isSaving}
+              onClick={() => setIsAiSettingsOpen(true)}
+            >
+              AI設定
+            </button>
+          </div>
+        </div>
+        <p className="ai-assist-notice">
+          実行すると、現在の日記入力をOpenAI APIへ送信します。生成結果は確認後に反映され、自動保存されません。
+        </p>
+        <div className="ai-assist-actions">
+          <button
+            type="button"
+            disabled={isAiWorking || isSaving}
+            onClick={() => void handleAiRequest('generate')}
+          >
+            {isAiWorking ? 'AIが作成中...' : 'AIで本文を作る'}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isAiWorking || isSaving || !content.trim()}
+            onClick={() => void handleAiRequest('rewrite')}
+          >
+            AIで文章を整える
+          </button>
+        </div>
+        {aiMessage ? <p className="ai-assist-message" role="status">{aiMessage}</p> : null}
+      </section>
+
       <section className="habit-fieldset" aria-labelledby="today-habits-heading">
         <div className="habit-fieldset-header">
           <h3 id="today-habits-heading">
@@ -373,13 +487,13 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
       </section>
 
       <div className="form-actions">
-        <button type="submit" disabled={isSaving}>
+        <button type="submit" disabled={isSaving || isAiWorking}>
           {isSaving ? '保存中...' : '保存する'}
         </button>
         <button
           className="secondary-button"
           type="button"
-          disabled={isSaving}
+          disabled={isSaving || isAiWorking}
           onClick={() => {
             resetDiaryForm()
             setMessage('')
@@ -396,6 +510,32 @@ export function DiaryPage({ isActive }: FeaturePageProps) {
           target={openSettingsModal.target}
           onClose={() => setOpenSettingsModal(null)}
           onSettingsChanged={loadDiarySettings}
+        />
+      ) : null}
+
+      {isAiSettingsOpen ? (
+        <AiSettingsModal
+          onClose={() => setIsAiSettingsOpen(false)}
+          onSettingsChanged={(settings) => {
+            setAiSettings(settings)
+            setAiMessage(settings.configured ? 'OpenAI APIキーを設定しました。' : '')
+          }}
+        />
+      ) : null}
+
+      {aiDraftPreview ? (
+        <AiDraftPreviewModal
+          currentContent={content}
+          currentTitle={title}
+          draft={aiDraftPreview.draft}
+          mode={aiDraftPreview.mode}
+          onApply={() => {
+            setTitle(aiDraftPreview.draft.title)
+            setContent(aiDraftPreview.draft.content)
+            setAiDraftPreview(null)
+            setAiMessage('AIの提案を本文に反映しました。内容を確認してから保存してください。')
+          }}
+          onClose={() => setAiDraftPreview(null)}
         />
       ) : null}
     </form>

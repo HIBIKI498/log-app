@@ -2,6 +2,39 @@ import { ipcRenderer, contextBridge } from 'electron'
 
 type WellbeingScore = 1 | 2 | 3 | 4 | 5
 
+type AiSettingsInput = {
+  apiKey: string
+  model: string
+}
+
+type AiSettingsSummary = {
+  configured: boolean
+  model: string
+  modelOptions: Array<{
+    id: string
+    label: string
+  }>
+}
+
+type AiDiaryInput = {
+  mode: 'generate' | 'rewrite'
+  date: string
+  title: string
+  tags: string[]
+  content: string
+  bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
+}
+
+type AiDiaryDraft = {
+  title: string
+  content: string
+}
+
 type SaveEntryInput = {
   date: string
   title: string
@@ -93,6 +126,21 @@ type TodoItem = Omit<TodoInput, 'dueDate'> & {
 }
 
 contextBridge.exposeInMainWorld('logApp', {
+  deleteAiSettings() {
+    return ipcRenderer.invoke('ai:delete-settings') as Promise<AiSettingsSummary>
+  },
+  generateDiaryDraft(input: AiDiaryInput) {
+    return ipcRenderer.invoke('ai:generate-diary', input) as Promise<AiDiaryDraft>
+  },
+  getAiSettings() {
+    return ipcRenderer.invoke('ai:get-settings') as Promise<AiSettingsSummary>
+  },
+  saveAiSettings(input: AiSettingsInput) {
+    return ipcRenderer.invoke('ai:save-settings', input) as Promise<AiSettingsSummary>
+  },
+  testOpenAiConnection(input: AiSettingsInput) {
+    return ipcRenderer.invoke('ai:test-connection', input) as Promise<{ ok: true }>
+  },
   addTodo(todo: TodoInput) {
     return ipcRenderer.invoke('todos:add', todo) as Promise<{ id: number }>
   },

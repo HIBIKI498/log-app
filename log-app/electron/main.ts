@@ -8,6 +8,18 @@ import { fileURLToPath } from 'node:url'
 
 import path from 'node:path'
 
+import {
+  deleteAiSettings,
+  getAiSettingsSummary,
+  saveAiSettings,
+  type AiSettingsInput,
+} from './ai/aiSettings'
+import {
+  generateDiaryDraft,
+  testOpenAiConnection,
+  type AiDiaryInput,
+} from './ai/openAiDiary'
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 process.env.APP_ROOT = path.join(__dirname, '..')
@@ -774,6 +786,22 @@ function registerTrustedIpcHandler<Args extends unknown[], Result>(
 
 // Renderer から呼び出す保存処理を IPC として登録する。
 function registerIpcHandlers() {
+  registerTrustedIpcHandler('ai:get-settings', () => getAiSettingsSummary())
+
+  registerTrustedIpcHandler('ai:save-settings', (_event, input: AiSettingsInput) => (
+    saveAiSettings(input)
+  ))
+
+  registerTrustedIpcHandler('ai:delete-settings', () => deleteAiSettings())
+
+  registerTrustedIpcHandler('ai:test-connection', (_event, input: AiSettingsInput) => (
+    testOpenAiConnection(input)
+  ))
+
+  registerTrustedIpcHandler('ai:generate-diary', (_event, input: AiDiaryInput) => (
+    generateDiaryDraft(input)
+  ))
+
   registerTrustedIpcHandler('entries:list-tags', async () => {
     const connection = createDatabaseConnection()
 

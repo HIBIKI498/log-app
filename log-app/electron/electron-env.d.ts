@@ -10,6 +10,39 @@ declare namespace NodeJS {
 
 type WellbeingScore = 1 | 2 | 3 | 4 | 5
 
+type AiSettingsInput = {
+  apiKey: string
+  model: string
+}
+
+type AiSettingsSummary = {
+  configured: boolean
+  model: string
+  modelOptions: Array<{
+    id: string
+    label: string
+  }>
+}
+
+type AiDiaryInput = {
+  mode: 'generate' | 'rewrite'
+  date: string
+  title: string
+  tags: string[]
+  content: string
+  bulletPoints: string
+  breakfast: string
+  lunch: string
+  dinner: string
+  moodScore: WellbeingScore | null
+  conditionScore: WellbeingScore | null
+}
+
+type AiDiaryDraft = {
+  title: string
+  content: string
+}
+
 type SaveEntryInput = {
   date: string
   title: string
@@ -108,6 +141,11 @@ type TodoItem = Omit<TodoInput, 'dueDate'> & {
 
 interface Window {
   logApp: {
+    deleteAiSettings(): Promise<AiSettingsSummary>
+    generateDiaryDraft(input: AiDiaryInput): Promise<AiDiaryDraft>
+    getAiSettings(): Promise<AiSettingsSummary>
+    saveAiSettings(input: AiSettingsInput): Promise<AiSettingsSummary>
+    testOpenAiConnection(input: AiSettingsInput): Promise<{ ok: true }>
     addTodo(todo: TodoInput): Promise<{ id: number }>
     addFixedTag(name: string): Promise<{ id: number }>
     addHabit(name: string, weekdays: number[]): Promise<{ id: number }>
