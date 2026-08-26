@@ -83,9 +83,10 @@ log-app/
     │   ├── main.tsx
     │   ├── index.css
     │   ├── features/
+    │   │   ├── ai/
+    │   │   │   └── AiSettingsPage.tsx
     │   │   ├── diary/
     │   │   │   ├── AiDraftPreviewModal.tsx
-    │   │   │   ├── AiSettingsModal.tsx
     │   │   │   └── DiaryPage.tsx
     │   │   ├── history/HistoryPage.tsx
     │   │   ├── reports/ReportsPage.tsx
@@ -105,6 +106,7 @@ log-app/
 ## 主なファイル
 
 - `log-app/src/features/diary/DiaryPage.tsx`: 日記の入力、タグ、箇条書きメモ、習慣チェックを担当します。
+- `log-app/src/features/ai/AiSettingsPage.tsx`: OpenAI APIキーと使用モデルの設定を担当します。
 - `log-app/src/features/history/HistoryPage.tsx`: 日記の検索、編集、削除を担当します。
 - `log-app/src/features/reports/ReportsPage.tsx`: 習慣達成率のレポートを担当します。
 - `log-app/src/features/tags/TagsPage.tsx`: 固定タグと習慣項目の管理を担当します。
@@ -114,8 +116,8 @@ log-app/
 
 ## AIアシストの設定
 
-AIアシストを利用するには、OpenAI API Platformで発行したAPIキーが必要です。日記画面の
-「AI設定」からAPIキーと使用モデルを登録し、「接続テスト」で利用可否を確認してください。
+AIアシストを利用するには、OpenAI API Platformで発行したAPIキーが必要です。上部メニューの
+「AI設定」ページからAPIキーと使用モデルを登録し、「接続テスト」で利用可否を確認してください。
 
 - APIキーはソースコードや `.env` には保存しません。
 - 登録したAPIキーはElectronの安全な保存機能で暗号化し、`userData` フォルダーに保存します。
