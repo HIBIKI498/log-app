@@ -11,7 +11,12 @@ import {
   type SettingsModalTarget,
 } from '../../shared/SettingsModal'
 import { SettingsShortcuts } from '../../shared/SettingsShortcuts'
-import type { FeaturePageProps, FixedTagSetting, HabitSetting } from '../../shared/types'
+import type {
+  DiaryDateRequest,
+  FeaturePageProps,
+  FixedTagSetting,
+  HabitSetting,
+} from '../../shared/types'
 import {
   CONDITION_OPTIONS,
   MOOD_OPTIONS,
@@ -22,6 +27,7 @@ import { AiDraftPreviewModal } from './AiDraftPreviewModal'
 
 type DiaryPageProps = FeaturePageProps & {
   onOpenAiSettings: () => void
+  requestedDate: DiaryDateRequest | null
 }
 
 type OpenSettingsModal = {
@@ -34,7 +40,7 @@ type AiDraftPreview = {
   mode: 'generate' | 'rewrite'
 }
 
-export function DiaryPage({ isActive, onOpenAiSettings }: DiaryPageProps) {
+export function DiaryPage({ isActive, onOpenAiSettings, requestedDate }: DiaryPageProps) {
   const [date, setDate] = useState(getTodayString)
   const [title, setTitle] = useState('')
   const [tags, setTags] = useState('')
@@ -103,6 +109,15 @@ export function DiaryPage({ isActive, onOpenAiSettings }: DiaryPageProps) {
       void loadAiSettings()
     }
   }, [isActive, loadAiSettings, loadDiarySettings])
+
+  useEffect(() => {
+    if (!requestedDate) {
+      return
+    }
+
+    setDate(requestedDate.date)
+    setMessage(`${requestedDate.date}の日記を入力できます。`)
+  }, [requestedDate])
 
   const getMergedTags = () => {
     const customTags = tags

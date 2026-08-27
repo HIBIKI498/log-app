@@ -5,6 +5,7 @@ import { HistoryPage } from './features/history'
 import { ReportsPage } from './features/reports'
 import { TagsPage } from './features/tags'
 import { TodoPage } from './features/todos'
+import type { DiaryDateRequest } from './shared/types'
 
 type ActiveView = 'diary' | 'history' | 'reports' | 'todos' | 'tags' | 'ai-settings'
 
@@ -20,6 +21,15 @@ const NAVIGATION_ITEMS: Array<{ id: ActiveView; label: string }> = [
 // アプリ全体の枠と画面切り替えを担当し、機能処理はfeatures配下へ委譲する。
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>('todos')
+  const [diaryDateRequest, setDiaryDateRequest] = useState<DiaryDateRequest | null>(null)
+
+  const openDiaryForDate = (date: string) => {
+    setDiaryDateRequest((currentRequest) => ({
+      date,
+      requestId: (currentRequest?.requestId ?? 0) + 1,
+    }))
+    setActiveView('diary')
+  }
 
   return (
     <main className="app-shell">
@@ -46,8 +56,12 @@ function App() {
         <DiaryPage
           isActive={activeView === 'diary'}
           onOpenAiSettings={() => setActiveView('ai-settings')}
+          requestedDate={diaryDateRequest}
         />
-        <HistoryPage isActive={activeView === 'history'} />
+        <HistoryPage
+          isActive={activeView === 'history'}
+          onCreateDiary={openDiaryForDate}
+        />
         <ReportsPage isActive={activeView === 'reports'} />
         <TodoPage isActive={activeView === 'todos'} />
         <TagsPage isActive={activeView === 'tags'} />

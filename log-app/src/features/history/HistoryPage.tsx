@@ -44,6 +44,10 @@ type HistoryEntry = {
 
 type HistoryView = 'list' | 'calendar'
 
+type HistoryPageProps = FeaturePageProps & {
+  onCreateDiary: (date: string) => void
+}
+
 type HistorySearchFilters = {
   keyword: string
   tag: string
@@ -81,7 +85,7 @@ function splitBulletPoints(bulletPoints: string) {
     .filter(Boolean)
 }
 
-export function HistoryPage({ isActive }: FeaturePageProps) {
+export function HistoryPage({ isActive, onCreateDiary }: HistoryPageProps) {
   const today = getTodayString()
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([])
   const [historyView, setHistoryView] = useState<HistoryView>('list')
@@ -610,8 +614,18 @@ export function HistoryPage({ isActive }: FeaturePageProps) {
           <div className="calendar-selection-heading">
             {selectedCalendarDate ? (
               <>
-                <h3>{selectedCalendarDate}の日記</h3>
-                <span>{displayedHistoryEntries.length}件</span>
+                <div className="calendar-selection-summary">
+                  <h3>{selectedCalendarDate}の日記</h3>
+                  <span>{displayedHistoryEntries.length}件</span>
+                </div>
+                <button
+                  className="calendar-create-diary-button"
+                  type="button"
+                  disabled={isLoadingHistory || isMutatingHistory}
+                  onClick={() => onCreateDiary(selectedCalendarDate)}
+                >
+                  この日に日記を書く
+                </button>
               </>
             ) : (
               <p>日付を選択すると、その日の日記を表示します。</p>

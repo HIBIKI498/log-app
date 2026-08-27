@@ -2,6 +2,11 @@ export type FeaturePageProps = {
   isActive: boolean
 }
 
+export type DiaryDateRequest = {
+  date: string
+  requestId: number
+}
+
 export type SettingsItem = {
   id: number
   name: string

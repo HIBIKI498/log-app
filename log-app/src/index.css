@@ -1109,12 +1109,19 @@ button {
 .calendar-selection-heading {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   margin-top: 12px;
   border-top: 1px solid #d8e0e8;
   padding-top: 12px;
+}
+
+.calendar-selection-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .calendar-selection-heading h3,
@@ -1130,6 +1137,25 @@ button {
 .calendar-selection-heading p {
   color: #555555;
   font-size: 14px;
+}
+
+.calendar-create-diary-button {
+  min-height: 38px;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #ffffff;
+  background: #006bd6;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.calendar-create-diary-button:hover {
+  background: #005bbb;
+}
+
+.calendar-create-diary-button:disabled {
+  background: #8aaed3;
+  cursor: not-allowed;
 }
 
 .calendar-selected-empty {
@@ -2241,6 +2267,14 @@ button {
 
   .calendar-day-count {
     font-size: 11px;
+  }
+
+  .calendar-selection-heading {
+    align-items: stretch;
+  }
+
+  .calendar-create-diary-button {
+    width: 100%;
   }
 
   .todo-add-modal-actions .secondary-button,
