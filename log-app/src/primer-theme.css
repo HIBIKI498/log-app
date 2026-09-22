@@ -1,0 +1,932 @@
+/*
+ * Product theme inspired by GitHub Primer.
+ * The application keeps its existing blue accent while using Primer's
+ * compact spacing, neutral surfaces, restrained radii, and border-led hierarchy.
+ */
+
+:root {
+  --primer-fg-default: #1f2328;
+  --primer-fg-muted: #656d76;
+  --primer-fg-subtle: #6e7781;
+  --primer-canvas-default: #ffffff;
+  --primer-canvas-subtle: #f6f8fa;
+  --primer-canvas-inset: #eff2f5;
+  --primer-border-default: #d0d7de;
+  --primer-border-muted: #d8dee4;
+  --primer-accent-fg: #0969da;
+  --primer-accent-emphasis: #0969da;
+  --primer-accent-muted: rgb(84 174 255 / 40%);
+  --primer-success-fg: #1a7f37;
+  --primer-danger-fg: #cf222e;
+  --primer-danger-emphasis: #a40e26;
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-subtle);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans JP",
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-subtle);
+}
+
+button,
+input,
+select,
+textarea {
+  transition:
+    border-color 80ms ease,
+    box-shadow 80ms ease,
+    background-color 80ms ease,
+    color 80ms ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primer-accent-fg);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 3px rgb(9 105 218 / 20%);
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 0 24px 48px;
+  background: var(--primer-canvas-subtle);
+}
+
+.app-container {
+  width: min(1100px, 100%);
+}
+
+.app-header {
+  min-height: 64px;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.app-brand {
+  gap: 10px;
+}
+
+.app-brand-mark {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #1f2328;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #24292f;
+  box-shadow: none;
+}
+
+.app-brand-mark svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.1;
+}
+
+.app-header h1 {
+  color: var(--primer-fg-default);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.app-header p {
+  margin-top: 1px;
+  color: var(--primer-fg-muted);
+  font-size: 12px;
+}
+
+.app-storage-status {
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: var(--primer-fg-muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.app-storage-status svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.25;
+}
+
+.view-tabs {
+  gap: 4px;
+  margin: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--primer-border-default);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.view-tabs button {
+  position: relative;
+  gap: 6px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 9px 14px;
+  color: var(--primer-fg-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.view-tabs button::after {
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 2px;
+  border-radius: 0;
+  background: transparent;
+  content: "";
+}
+
+.view-tabs button:hover {
+  border-color: transparent;
+  color: var(--primer-fg-default);
+  background: rgb(175 184 193 / 16%);
+}
+
+.view-tabs button.active {
+  border-color: transparent;
+  color: var(--primer-fg-default);
+  background: transparent;
+  box-shadow: none;
+}
+
+.view-tabs button.active::after {
+  background: var(--primer-accent-emphasis);
+}
+
+.view-tabs button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+
+/* Page surfaces and hierarchy */
+
+.log-form,
+.history-section,
+.report-section,
+.todo-section,
+.settings-section,
+.ai-settings-page {
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  padding: 24px;
+  background: var(--primer-canvas-default);
+  box-shadow: none;
+}
+
+.section-heading {
+  gap: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--primer-border-muted);
+  padding-bottom: 16px;
+}
+
+.section-heading h2,
+.log-form h2 {
+  color: var(--primer-fg-default);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.section-description {
+  margin-top: 4px;
+  color: var(--primer-fg-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.section-heading-actions {
+  gap: 8px;
+}
+
+/* Form controls */
+
+.field {
+  gap: 6px;
+  color: var(--primer-fg-default);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea,
+.wellbeing-input-grid select,
+.meal-input-grid textarea,
+.history-search-form input,
+.history-search-form select,
+.history-edit-form input,
+.history-edit-form select,
+.history-edit-form textarea,
+.settings-field input,
+.settings-item-main > input,
+.settings-item-compact > input,
+.ai-settings-page-form .settings-field select,
+.ai-preview-field input,
+.ai-preview-field textarea,
+.todo-form-field input,
+.todo-due-field > input,
+.todo-add-modal-form select {
+  min-height: 36px;
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-default);
+  box-shadow: inset 0 1px 0 rgb(31 35 40 / 4%);
+}
+
+.field input:hover,
+.field select:hover,
+.field textarea:hover,
+.wellbeing-input-grid select:hover,
+.meal-input-grid textarea:hover,
+.history-search-form input:hover,
+.history-search-form select:hover,
+.history-edit-form input:hover,
+.history-edit-form select:hover,
+.history-edit-form textarea:hover,
+.settings-field input:hover,
+.settings-item-main > input:hover,
+.settings-item-compact > input:hover,
+.ai-settings-page-form .settings-field select:hover,
+.ai-preview-field input:hover,
+.ai-preview-field textarea:hover,
+.todo-form-field input:hover,
+.todo-due-field > input:hover,
+.todo-add-modal-form select:hover {
+  border-color: #afb8c1;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.wellbeing-input-grid select:focus,
+.meal-input-grid textarea:focus,
+.history-search-form input:focus,
+.history-search-form select:focus,
+.history-edit-form input:focus,
+.history-edit-form select:focus,
+.history-edit-form textarea:focus,
+.settings-field input:focus,
+.settings-item-main > input:focus,
+.settings-item-compact > input:focus,
+.ai-settings-page-form .settings-field select:focus,
+.ai-preview-field input:focus,
+.ai-preview-field textarea:focus,
+.todo-form-field input:focus,
+.todo-due-field > input:focus,
+.todo-add-modal-form select:focus {
+  border-color: var(--primer-accent-fg);
+  outline: 2px solid var(--primer-accent-fg);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 3px rgb(9 105 218 / 20%);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--primer-fg-subtle);
+  opacity: 0.8;
+}
+
+/* Buttons: secondary by default, blue only for the primary action. */
+
+.view-tabs button,
+.secondary-button,
+.history-tags button,
+.todo-edit-button,
+.todo-delete-button,
+.history-view-switch button,
+.todo-filter button,
+.todo-sort button,
+.settings-add-form .weekday-selector button,
+.settings-item .weekday-selector button {
+  box-shadow: none;
+}
+
+.secondary-button,
+.history-tags button,
+.todo-edit-button,
+.todo-delete-button {
+  min-height: 32px;
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-subtle);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.secondary-button:hover,
+.history-tags button:hover,
+.todo-edit-button:hover,
+.todo-delete-button:hover {
+  border-color: #afb8c1;
+  color: var(--primer-fg-default);
+  background: #f3f4f6;
+}
+
+.log-form button,
+.history-search-actions button,
+.history-actions button,
+.history-delete-confirmation button,
+.calendar-create-diary-button,
+.todo-add-button,
+.settings-add-button,
+.settings-item-actions button,
+.ai-modal-primary,
+.ai-settings-save-button,
+.ai-settings-delete-button {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.log-form button:not(:disabled):active,
+.history-search-actions button:not(:disabled):active,
+.history-actions button:not(:disabled):active,
+.calendar-create-diary-button:not(:disabled):active,
+.todo-add-button:not(:disabled):active,
+.settings-add-button:not(:disabled):active,
+.settings-item-actions button:not(:disabled):active,
+.ai-settings-save-button:not(:disabled):active {
+  transform: none;
+}
+
+.todo-add-button,
+.calendar-create-diary-button,
+.settings-add-button,
+.ai-settings-save-button,
+.ai-modal-primary,
+.log-form > .form-actions > button:first-child {
+  border: 1px solid rgb(27 31 36 / 15%);
+  color: #ffffff;
+  background: var(--primer-accent-emphasis);
+}
+
+.todo-add-button:hover,
+.calendar-create-diary-button:hover,
+.settings-add-button:hover,
+.ai-settings-save-button:hover,
+.ai-modal-primary:hover,
+.log-form > .form-actions > button:first-child:hover {
+  background: #0860ca;
+}
+
+.danger-button,
+.ai-settings-delete-button {
+  color: #ffffff;
+  background: var(--primer-danger-emphasis);
+}
+
+/* Grouped content */
+
+.wellbeing-fieldset,
+.history-wellbeing-editor,
+.meal-fieldset,
+.history-meal-editor,
+.habit-fieldset,
+.ai-assist-panel {
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  padding: 14px;
+  background: var(--primer-canvas-subtle);
+}
+
+.wellbeing-fieldset,
+.history-wellbeing-editor,
+.habit-fieldset,
+.ai-assist-panel,
+.meal-fieldset,
+.history-meal-editor {
+  border-color: var(--primer-border-default);
+}
+
+.habit-fieldset-header,
+.ai-assist-notice {
+  border-color: var(--primer-border-muted);
+}
+
+.habit-fieldset label {
+  min-height: auto;
+  border-radius: 3px;
+  padding: 2px 4px;
+  color: var(--primer-fg-default);
+}
+
+.habit-fieldset label:hover {
+  background: #eaeef2;
+}
+
+.log-form .settings-shortcut-button {
+  width: 30px;
+  height: 30px;
+  border-color: var(--primer-border-default);
+  border-radius: 6px;
+  color: var(--primer-fg-muted);
+  background: var(--primer-canvas-default);
+}
+
+.log-form .settings-shortcut-button:hover {
+  border-color: #afb8c1;
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-subtle);
+}
+
+.log-form .fixed-tag-selector button,
+.history-tags button {
+  border-radius: 2em;
+}
+
+.log-form .fixed-tag-selector button.active {
+  box-shadow: none;
+}
+
+.form-actions {
+  border-top-color: var(--primer-border-muted);
+}
+
+.save-message,
+.history-message,
+.ai-settings-message,
+.ai-assist-message {
+  border: 1px solid #54aeff66;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--primer-fg-default);
+  background: #ddf4ff;
+  font-size: 13px;
+}
+
+/* ToDo */
+
+.todo-overview {
+  gap: 0;
+  margin-top: 0;
+  border-bottom: 1px solid var(--primer-border-muted);
+  padding: 0 0 14px;
+}
+
+.todo-overview > span {
+  gap: 5px;
+  border: 0;
+  border-right: 1px solid var(--primer-border-muted);
+  border-radius: 0;
+  padding: 0 16px;
+  color: var(--primer-fg-muted);
+  background: transparent;
+}
+
+.todo-overview > span:first-child {
+  padding-left: 0;
+}
+
+.todo-overview > span:last-child {
+  border-right: 0;
+}
+
+.todo-overview strong {
+  color: var(--primer-fg-default);
+  font-size: 14px;
+}
+
+.todo-toolbar {
+  margin-top: 12px;
+  border: 0;
+  padding: 0;
+}
+
+.todo-filter,
+.todo-sort,
+.history-view-switch {
+  gap: 0;
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  padding: 0;
+  background: var(--primer-canvas-default);
+}
+
+.todo-filter button,
+.todo-sort button,
+.history-view-switch button {
+  min-height: 32px;
+  border: 0;
+  border-right: 1px solid var(--primer-border-default);
+  border-radius: 0;
+  padding: 5px 10px;
+  color: var(--primer-fg-default);
+  background: var(--primer-canvas-default);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.todo-filter button:last-child,
+.todo-sort button:last-child,
+.history-view-switch button:last-child {
+  border-right: 0;
+}
+
+.todo-filter button:hover,
+.todo-sort button:hover,
+.history-view-switch button:hover {
+  background: var(--primer-canvas-subtle);
+}
+
+.todo-filter button.active,
+.todo-sort button.active,
+.history-view-switch button.active {
+  color: #ffffff;
+  background: #57606a;
+  box-shadow: none;
+}
+
+.history-view-switch button.active {
+  background: var(--primer-accent-emphasis);
+}
+
+.todo-list {
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.todo-date-heading h3 {
+  color: var(--primer-fg-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.todo-date-heading::after {
+  background: var(--primer-border-muted);
+}
+
+.todo-item {
+  border: 1px solid var(--primer-border-default);
+  border-left: 3px solid #8c959f;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: none;
+}
+
+.todo-item:hover {
+  border-top-color: #afb8c1;
+  border-right-color: #afb8c1;
+  border-bottom-color: #afb8c1;
+  box-shadow: none;
+}
+
+.todo-priority {
+  border-radius: 2em;
+  padding: 2px 7px;
+}
+
+.todo-edit-button,
+.todo-delete-button {
+  min-height: 28px;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.todo-delete-button {
+  color: var(--primer-danger-fg);
+}
+
+.todo-empty-message,
+.calendar-selected-empty,
+.settings-empty-message {
+  border-color: var(--primer-border-default);
+  border-radius: 6px;
+  padding: 24px 16px;
+  color: var(--primer-fg-muted);
+  background: var(--primer-canvas-subtle);
+}
+
+/* History, reports, and settings */
+
+.history-search-form,
+.history-calendar {
+  border-color: var(--primer-border-default);
+  border-radius: 6px;
+  background: var(--primer-canvas-subtle);
+}
+
+.history-search-form {
+  padding: 14px;
+}
+
+.history-calendar {
+  padding: 12px;
+}
+
+.calendar-weekdays {
+  border-color: var(--primer-border-default);
+  border-radius: 6px 6px 0 0;
+  background: var(--primer-canvas-inset);
+}
+
+.calendar-day,
+.calendar-empty-cell {
+  border-color: var(--primer-border-muted);
+}
+
+.calendar-day {
+  min-height: 82px;
+  padding: 7px;
+}
+
+.calendar-day:hover {
+  background: #ddf4ff;
+}
+
+.calendar-day.selected {
+  box-shadow: inset 0 0 0 2px var(--primer-accent-emphasis);
+}
+
+.history-item,
+.report-summary div,
+.report-item,
+.habit-report-item,
+.settings-item,
+.ai-settings-card,
+.ai-settings-info-card,
+.ai-preview-card {
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  background: var(--primer-canvas-default);
+  box-shadow: none;
+}
+
+.history-item {
+  padding: 16px;
+}
+
+.history-item h3 {
+  color: var(--primer-fg-default);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.history-detail-panel {
+  border-color: var(--primer-border-muted);
+  border-radius: 6px;
+  background: var(--primer-canvas-subtle);
+}
+
+.habit-report-section {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.achievement-track {
+  height: 8px;
+  border-radius: 2em;
+  background: #eaeef2;
+}
+
+.achievement-fill {
+  border-radius: inherit;
+  background: var(--primer-success-fg);
+}
+
+.settings-grid {
+  gap: 28px;
+}
+
+.settings-panel + .settings-panel {
+  border-top-color: var(--primer-border-muted);
+}
+
+.settings-add-form {
+  border: 1px solid var(--primer-border-default);
+  border-left-width: 1px;
+  border-radius: 6px;
+  padding: 16px;
+  background: var(--primer-canvas-subtle);
+}
+
+.settings-item {
+  padding: 12px;
+  background: var(--primer-canvas-subtle);
+}
+
+.settings-add-form .weekday-selector button,
+.settings-item .weekday-selector button {
+  min-height: 34px;
+  border-color: var(--primer-border-default);
+  border-radius: 6px;
+  background: var(--primer-canvas-default);
+}
+
+.ai-settings-card,
+.ai-settings-info-card {
+  padding: 16px;
+}
+
+.ai-settings-info-card {
+  background: var(--primer-canvas-subtle);
+}
+
+/* Dialogs */
+
+.todo-add-modal-backdrop,
+.settings-modal-backdrop,
+.confirmation-modal-backdrop {
+  backdrop-filter: none;
+  background: rgb(27 31 36 / 50%);
+}
+
+.todo-add-modal,
+.settings-modal,
+.confirmation-modal {
+  border: 1px solid var(--primer-border-default);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(140 149 159 / 20%);
+}
+
+.todo-add-modal,
+.settings-modal,
+.confirmation-modal {
+  padding: 20px;
+}
+
+.todo-add-modal-header,
+.settings-modal-header {
+  border-bottom-color: var(--primer-border-muted);
+  padding-bottom: 12px;
+}
+
+.todo-add-modal-header h3,
+.confirmation-modal h3,
+.settings-modal-header h3 {
+  color: var(--primer-fg-default);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.todo-add-modal-form {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.settings-modal-close {
+  width: 32px;
+  height: 32px;
+  border-color: var(--primer-border-default);
+  border-radius: 6px;
+  background: var(--primer-canvas-subtle);
+}
+
+@media (max-width: 820px) {
+  .app-shell {
+    padding-inline: 16px;
+  }
+
+  .view-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .view-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .view-tabs button {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 0 10px 32px;
+  }
+
+  .app-header {
+    min-height: 56px;
+    margin: 0;
+    padding: 10px 2px;
+  }
+
+  .app-brand {
+    gap: 8px;
+  }
+
+  .app-brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+  }
+
+  .app-brand-mark svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .app-header h1 {
+    font-size: 18px;
+  }
+
+  .app-header p {
+    max-width: 225px;
+    font-size: 11px;
+  }
+
+  .app-storage-status {
+    padding: 0;
+    font-size: 0;
+  }
+
+  .app-storage-status svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .view-tabs {
+    margin: 0 -2px 12px;
+    border-radius: 0;
+  }
+
+  .view-tabs button {
+    min-width: auto;
+    padding: 8px 12px;
+  }
+
+  .log-form,
+  .history-section,
+  .report-section,
+  .todo-section,
+  .settings-section,
+  .ai-settings-page {
+    border-radius: 6px;
+    padding: 16px;
+  }
+
+  .section-heading {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .section-heading h2,
+  .log-form h2 {
+    font-size: 20px;
+  }
+
+  .section-heading-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .todo-section .section-heading-actions button {
+    flex: 0 0 auto;
+  }
+
+  .todo-toolbar-controls {
+    width: 100%;
+  }
+
+  .todo-filter,
+  .todo-sort {
+    flex: 1 1 150px;
+  }
+
+  .todo-filter button,
+  .todo-sort button {
+    flex: 1 1 0;
+  }
+}

@@ -89,13 +89,15 @@ function App() {
               </svg>
             </span>
             <div className="app-header-copy">
-              <span className="app-eyebrow">PERSONAL LOG</span>
               <h1>log-app</h1>
               <p>日記、習慣、ToDoをまとめて管理します。</p>
             </div>
           </div>
           <span className="app-storage-status">
-            <span aria-hidden="true" />
+            <svg aria-hidden="true" viewBox="0 0 16 16">
+              <path d="M4.75 7V5.25a3.25 3.25 0 0 1 6.5 0V7" />
+              <rect x="3" y="7" width="10" height="7" rx="1.5" />
+            </svg>
             この端末に保存
           </span>
         </header>
